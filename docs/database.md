@@ -112,3 +112,5 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 `data/prices.sqlite3` 是当前实例真实工作库，不纳入 Git。`db/schema.sql`、`db/monitor.sql`、`db/history.sql` 和计算代码可重建空库；真实采集数据需要另行备份，不能把 Git 当作价格历史备份。历史参考文件纳入版本管理，可显式导入重建这部分资料。
 
 当前采集器把经过身份、库存和币种验证的事实转换成相同格式，监控表额外保留关注、检查结果与站内提醒。看板启动时会运行到期检查调度器；没有邮件发送服务。每个监控关注使用独立 URL+SKU 身份，尚不自动将不同商户或语言页面合并。
+
+采集调度状态也持久化：关注的 `consecutive_failures`、`retry_not_before`，检查的 HTTP/重试元数据，以及 `monitor_host_cooldowns` 的来源等待截止时间。它们不参与价格指标，失败和等待不会新增价格观测。迁移为增量列/表修改，保留已有报价、历史来源和停用的旧地区数据。

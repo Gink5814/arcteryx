@@ -1,0 +1,161 @@
+{
+  "validated_at": "2026-10-27T04:41:08.560830+00:00",
+  "kind": "real_US_retailer_collection",
+  "watched_variants": 5,
+  "distinct_product_pages": 4,
+  "network_page_reads": 4,
+  "confirmation_page_reads": 0,
+  "primary_page_reads": 4,
+  "previous_per_variant_primary_reads": 5,
+  "primary_read_reduction_percent": 20.0,
+  "results": [
+    {
+      "watch_id": 1,
+      "retailer": "Arc'teryx official",
+      "sku": "X000010868009",
+      "color": "Black",
+      "size": "S",
+      "check_status": "ok",
+      "price_minor": 40000,
+      "availability": "in_stock",
+      "checks": [
+        {
+          "stage": "primary",
+          "status": "ok",
+          "error": null,
+          "quote": {
+            "captured_at": "2026-10-27T04:41:07.223405Z",
+            "availability": "in_stock",
+            "evidence_sha256": "3bb01cc1f2749c56835bb8586ce663129f6b85e1a51cd3bb60ad991ac6b46bb1",
+            "price_minor": 40000,
+            "source_url": "https://arcteryx.com/us/en/shop/mens/beta-jacket-0868",
+            "observed_at": "2026-10-27T04:41:07.223405Z"
+          },
+          "http_status": null,
+          "retryable": false,
+          "retry_after": null,
+          "attempted": true
+        }
+      ]
+    },
+    {
+      "watch_id": 3,
+      "retailer": "Arc'teryx official",
+      "sku": "X000010287010",
+      "color": "Black",
+      "size": "M",
+      "check_status": "ok",
+      "price_minor": 35000,
+      "availability": "in_stock",
+      "checks": [
+        {
+          "stage": "primary",
+          "status": "ok",
+          "error": null,
+          "quote": {
+            "captured_at": "2026-10-27T04:41:07.434496Z",
+            "availability": "in_stock",
+            "evidence_sha256": "4bae2a328729d28d355b9a31df1c3c05a3e6a7b325633f277a31caba639c9676",
+            "price_minor": 35000,
+            "source_url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+            "observed_at": "2026-10-27T04:41:07.434496Z"
+          },
+          "http_status": null,
+          "retryable": false,
+          "retry_after": null,
+          "attempted": true
+        }
+      ]
+    },
+    {
+      "watch_id": 4,
+      "retailer": "Arc'teryx official",
+      "sku": "X000010287008",
+      "color": "Black",
+      "size": "XS",
+      "check_status": "ok",
+      "price_minor": null,
+      "availability": "out_of_stock",
+      "checks": [
+        {
+          "stage": "primary",
+          "status": "ok",
+          "error": null,
+          "quote": {
+            "captured_at": "2026-10-27T04:41:07.434496Z",
+            "availability": "out_of_stock",
+            "evidence_sha256": "4bae2a328729d28d355b9a31df1c3c05a3e6a7b325633f277a31caba639c9676",
+            "price_minor": 35000,
+            "source_url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+            "observed_at": "2026-10-27T04:41:07.434496Z"
+          },
+          "http_status": null,
+          "retryable": false,
+          "retry_after": null,
+          "attempted": true
+        }
+      ]
+    },
+    {
+      "watch_id": 5,
+      "retailer": "REI Co-op",
+      "sku": "2286170079",
+      "color": "Alpine Blue",
+      "size": "XXL",
+      "check_status": "ok",
+      "price_minor": 24983,
+      "availability": "in_stock",
+      "checks": [
+        {
+          "stage": "primary",
+          "status": "ok",
+          "error": null,
+          "quote": {
+            "captured_at": "2026-10-27T04:41:08.081743Z",
+            "availability": "in_stock",
+            "evidence_sha256": "734bd5db08c44a067e88daa100b3663421dfa235a2f6691eea64ad0b188e371e",
+            "price_minor": 24983,
+            "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+            "observed_at": "2026-10-27T04:41:08.081743Z"
+          },
+          "http_status": null,
+          "retryable": false,
+          "retry_after": null,
+          "attempted": true
+        }
+      ]
+    },
+    {
+      "watch_id": 6,
+      "retailer": "REI Co-op",
+      "sku": "2433320090",
+      "color": "Shincha",
+      "size": "XL",
+      "check_status": "ok",
+      "price_minor": 14983,
+      "availability": "in_stock",
+      "checks": [
+        {
+          "stage": "primary",
+          "status": "ok",
+          "error": null,
+          "quote": {
+            "captured_at": "2026-10-27T04:41:08.513709Z",
+            "availability": "in_stock",
+            "evidence_sha256": "90c395147bd0f3a1ffc27aeddf58cde43150e838e253582b3dd9dfcc567be762",
+            "price_minor": 14983,
+            "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+            "observed_at": "2026-10-27T04:41:08.513709Z"
+          },
+          "http_status": null,
+          "retryable": false,
+          "retry_after": null,
+          "attempted": true
+        }
+      ]
+    }
+  ],
+  "prior_observations_preserved": 21,
+  "reference_records": 12,
+  "limitations": "One current live cycle, not a sustained reliability benchmark. 429/503/retry scenarios use isolated synthetic tests, never deliberate retailer load."
+}

@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS monitor_watches (
     last_availability TEXT,
     last_explicit_availability TEXT,
     next_due_at TEXT,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    retry_not_before TEXT,
     armed INTEGER NOT NULL DEFAULT 1 CHECK (armed IN (0,1)),
     event_number INTEGER NOT NULL DEFAULT 0,
     event_threshold_minor INTEGER,
@@ -42,7 +44,10 @@ CREATE TABLE IF NOT EXISTS monitor_checks (
     stage TEXT NOT NULL CHECK (stage IN ('primary','confirmation')),
     status TEXT NOT NULL,
     error TEXT,
-    quote_json TEXT
+    quote_json TEXT,
+    http_status INTEGER,
+    retryable INTEGER NOT NULL DEFAULT 0,
+    retry_after TEXT
 );
 
 CREATE TABLE IF NOT EXISTS monitor_alerts (
@@ -61,3 +66,12 @@ CREATE TABLE IF NOT EXISTS monitor_alerts (
 
 CREATE INDEX IF NOT EXISTS monitor_due ON monitor_watches(enabled,next_due_at);
 CREATE INDEX IF NOT EXISTS monitor_checks_watch ON monitor_checks(watch_id,id);
+
+-- Shared across workers and manual/discovery requests. A server's not-before
+-- deadline is never shortened by another failure or a successful other watch.
+CREATE TABLE IF NOT EXISTS monitor_host_cooldowns (
+    host TEXT PRIMARY KEY,
+    not_before TEXT NOT NULL,
+    http_status INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);

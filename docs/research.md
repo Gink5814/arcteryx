@@ -1,5 +1,7 @@
 # Arc'teryx price alert 首轮调研档案
 
+后续已完成 [五个成熟开源项目的源码比较与采集优化](open-source-monitoring-review.md)，包括 PriceBuddy、changedetection.io、webchanges、urlwatch 和 Huginn；该报告记录本轮实际采用的稳定性改进。
+
 > **当前产品范围仅限美国 US / USD。** 本页保留最初北美调研的历史记录，其中加拿大项目、候选商家和网络要求不属于当前计划。现在已接通美国官网、美国 Outlet 和 REI，见 [运行与验证](monitoring.md)、[美国购买攻略](north-america-buying-guide.md) 和 [历史来源研究](history-source-research.md)。下文“本轮”、零数据状态及网络阻挡只描述首轮调查，不代表当前实现或连通性。
 
 调研日期：2026-10-26（America/Denver）。来源访问时间使用 UTC，见 `research/sources.json`。这是首轮实证调研；“已读源码”“官网待核实”和“已跑通零售站”分别记录。

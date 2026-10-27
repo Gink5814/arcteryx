@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 from arcteryx_prices.collector import (
-    CollectorError, MAX_RESPONSE_BYTES, _StrictRedirectHandler, _parse_quote,
+    BatchQuoteCollector, CollectorError, MAX_RESPONSE_BYTES, _StrictRedirectHandler, _parse_quote, _retry_after,
     collect_quote, discover_variants, parse_product_html, supported_retailers, validate_product_url,
 )
 
@@ -250,6 +250,124 @@ class CollectorTests(unittest.TestCase):
             self.assert_status('network_error', collect_quote, WATCH)
             opener.return_value.open.side_effect = HTTPError(URL, 406, 'Not Acceptable', {}, BytesIO())
             self.assert_status('http_error', collect_quote, WATCH)
+
+    def test_http_retry_metadata_does_not_retry_or_expose_response_details(self):
+        for code, retryable in ((408, True), (429, True), (500, True), (503, True),
+                                (504, True), (404, False), (403, False), (406, False)):
+            with self.subTest(code=code), patch('arcteryx_prices.collector.build_opener') as opener:
+                before = datetime.now(timezone.utc)
+                opener.return_value.open.side_effect = HTTPError(
+                    URL, code, 'SYNTHETIC PRIVATE RESPONSE',
+                    {'Retry-After': '86400', 'Unrelated': 'SYNTHETIC PRIVATE HEADER'}, BytesIO())
+                with self.assertRaises(CollectorError) as failure:
+                    collect_quote(WATCH)
+                error = failure.exception
+                self.assertEqual(error.http_status, code)
+                self.assertEqual(error.response_url, URL)
+                self.assertEqual(error.retryable, retryable)
+                self.assertGreaterEqual(error.retry_after, before + timedelta(days=1))
+                self.assertLessEqual(error.retry_after, datetime.now(timezone.utc) + timedelta(days=1))
+                self.assertNotIn('PRIVATE', str(error))
+                opener.return_value.open.assert_called_once()
+        with patch('arcteryx_prices.collector.build_opener') as opener:
+            opener.return_value.open.side_effect = URLError('SYNTHETIC PRIVATE NETWORK DETAILS')
+            with self.assertRaises(CollectorError) as failure:
+                collect_quote(WATCH)
+            self.assertTrue(failure.exception.retryable)
+            self.assertIsNone(failure.exception.http_status)
+            self.assertIsNone(failure.exception.retry_after)
+            self.assertNotIn('PRIVATE', str(failure.exception))
+        self.assertFalse(CollectorError('identity_mismatch', 'SYNTHETIC').retryable)
+
+    def test_http_response_url_metadata_accepts_only_supported_product_locations(self):
+        for url, expected in (
+            (URL.replace('arcteryx.com', 'outlet.arcteryx.com'), URL.replace('arcteryx.com', 'outlet.arcteryx.com')),
+            ('https://evil.example/private', None),
+            (URL.replace('/us/en/', '/ca/en/'), None),
+            (URL.replace('https://', 'https://user:password@'), None),
+        ):
+            with self.subTest(url=url), patch('arcteryx_prices.collector.build_opener') as opener:
+                opener.return_value.open.side_effect = HTTPError(url, 429, 'SYNTHETIC', {}, BytesIO())
+                with self.assertRaises(CollectorError) as failure:
+                    collect_quote(WATCH)
+                self.assertEqual(failure.exception.response_url, expected)
+
+    def test_retry_after_supports_http_dates_and_seconds_without_shortening_delay(self):
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.assertEqual(_retry_after('90000', now), now + timedelta(hours=25))
+        self.assertEqual(_retry_after('Fri, 02 Jan 2026 12:00:00 GMT', now), now + timedelta(hours=36))
+        self.assertEqual(_retry_after('Wed, 31 Dec 2025 12:00:00 GMT', now), now)
+        self.assertEqual(_retry_after('0', now), now)
+        self.assertEqual(_retry_after('9' * 100, now), datetime.max.replace(tzinfo=timezone.utc))
+        for value in (None, '', '-1', '1.5', 'tomorrow', '9' * 129,
+                      'Fri, 02 Jan 2026 12:00:00', 'Fri, 99 Jan 2026 12:00:00 GMT'):
+            with self.subTest(value=value):
+                self.assertIsNone(_retry_after(value, now))
+
+    def test_batch_primary_shares_bytes_time_and_hash_but_not_variant_facts(self):
+        large = WATCH | {'sku': 'SYNTHETIC-BLACK-L', 'size': 'L'}
+        batch = BatchQuoteCollector()
+        with patch('arcteryx_prices.collector._read_page', return_value=(FIXTURE.read_bytes(), URL)) as fetch:
+            medium_quote = batch.collect(WATCH)
+            large_quote = batch.collect(large)
+            fetch.assert_called_once_with(URL, 'US')
+        self.assertEqual((medium_quote['price_minor'], medium_quote['availability']), (49995, 'in_stock'))
+        self.assertEqual((large_quote['price_minor'], large_quote['availability']), (24995, 'out_of_stock'))
+        self.assertEqual(medium_quote['observed_at'], large_quote['observed_at'])
+        self.assertEqual(medium_quote['evidence_sha256'], large_quote['evidence_sha256'])
+
+    def test_confirmation_refetches_without_replacing_primary_or_surviving_next_cycle(self):
+        body = FIXTURE.read_bytes()
+        changed = body.replace(b'499.95', b'399.95')
+        batch = BatchQuoteCollector()
+        with patch('arcteryx_prices.collector._read_page',
+                   side_effect=[(body, URL), (changed, URL), (changed, URL)]) as fetch:
+            primary = batch.collect(WATCH)
+            confirmation = batch.collect(WATCH, stage='confirmation')
+            cached_primary = batch.collect(WATCH)
+            next_cycle = BatchQuoteCollector().collect(WATCH)
+            self.assertEqual(fetch.call_count, 3)
+        self.assertEqual(primary, cached_primary)
+        self.assertEqual(primary['price_minor'], 49995)
+        self.assertEqual(confirmation['price_minor'], 39995)
+        self.assertEqual(next_cycle['price_minor'], 39995)
+        self.assertNotEqual(primary['evidence_sha256'], confirmation['evidence_sha256'])
+
+    def test_variant_parse_failure_does_not_poison_other_variants_on_shared_page(self):
+        batch = BatchQuoteCollector()
+        with patch('arcteryx_prices.collector._read_page', return_value=(FIXTURE.read_bytes(), URL)) as fetch:
+            self.assert_status('identity_mismatch', batch.collect, WATCH | {'sku': 'MISSING'})
+            self.assertEqual(batch.collect(WATCH)['price_minor'], 49995)
+            fetch.assert_called_once()
+
+    def test_batch_failure_cache_preserves_retry_metadata_but_confirmation_fetches(self):
+        boundary = datetime(2027, 1, 1, tzinfo=timezone.utc)
+        error = CollectorError('http_error', 'Synthetic 429', http_status=429,
+                               retryable=True, retry_after=boundary)
+        batch = BatchQuoteCollector()
+        with patch('arcteryx_prices.collector._read_page',
+                   side_effect=[error, (FIXTURE.read_bytes(), URL)]) as fetch:
+            for watch in (WATCH, WATCH | {'size': 'L', 'sku': 'SYNTHETIC-BLACK-L'}):
+                with self.assertRaises(CollectorError) as failure:
+                    batch.collect(watch)
+                self.assertEqual(failure.exception.retry_after, boundary)
+                self.assertEqual(failure.exception.http_status, 429)
+                self.assertTrue(failure.exception.retryable)
+            self.assertEqual(fetch.call_count, 1)
+            self.assertEqual(batch.collect(WATCH, stage='confirmation')['price_minor'], 49995)
+            self.assertEqual(fetch.call_count, 2)
+
+    def test_batch_lru_is_bounded_and_exact_queries_are_separate(self):
+        batch = BatchQuoteCollector(max_pages=1)
+        with patch('arcteryx_prices.collector._read_page',
+                   side_effect=lambda url, market: (FIXTURE.read_bytes(), url)) as fetch:
+            batch.collect(WATCH)
+            batch.collect(WATCH | {'url': URL + '?color=Black'})
+            batch.collect(WATCH)
+            self.assertEqual(fetch.call_count, 3)
+        for value in (0, 9, True, 1.5):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                BatchQuoteCollector(max_pages=value)
 
     def test_response_size_limit(self):
         with patch('arcteryx_prices.collector.build_opener') as opener:

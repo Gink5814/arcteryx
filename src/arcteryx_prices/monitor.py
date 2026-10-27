@@ -13,6 +13,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .database import canonical_time, import_observations, initialize, metrics, parse_time
 from .scope import MARKET, CURRENCY, require_scope
@@ -41,8 +42,8 @@ def _validate_url(url):
 
 
 def _fetcher():
-    from .collector import collect_quote
-    return collect_quote
+    from .collector import BatchQuoteCollector
+    return BatchQuoteCollector()
 
 
 def initialize_monitor(db_path):
@@ -50,15 +51,25 @@ def initialize_monitor(db_path):
     connection.execute('PRAGMA busy_timeout = 10000')
     connection.executescript(MONITOR_SCHEMA.read_text(encoding='utf-8'))
     # Additive migration preserves existing official watch and price identities.
-    columns = {row['name'] for row in connection.execute('PRAGMA table_info(monitor_watches)')}
-    for name, declaration in (('retailer_key', "TEXT NOT NULL DEFAULT 'arcteryx-official'"),
-                              ('retailer_name', "TEXT NOT NULL DEFAULT 'Arc''teryx official'")):
-        if name not in columns:
-            try:
-                connection.execute(f'ALTER TABLE monitor_watches ADD COLUMN {name} {declaration}')
-            except sqlite3.OperationalError:
-                if name not in {row['name'] for row in connection.execute('PRAGMA table_info(monitor_watches)')}:
-                    raise
+    migrations = {
+        'monitor_watches': (
+            ('retailer_key', "TEXT NOT NULL DEFAULT 'arcteryx-official'"),
+            ('retailer_name', "TEXT NOT NULL DEFAULT 'Arc''teryx official'"),
+            ('consecutive_failures', 'INTEGER NOT NULL DEFAULT 0'),
+            ('retry_not_before', 'TEXT'),
+        ),
+        'monitor_checks': (('http_status', 'INTEGER'), ('retryable', 'INTEGER NOT NULL DEFAULT 0'),
+                           ('retry_after', 'TEXT')),
+    }
+    for table, additions in migrations.items():
+        columns = {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}
+        for name, declaration in additions:
+            if name not in columns:
+                try:
+                    connection.execute(f'ALTER TABLE {table} ADD COLUMN {name} {declaration}')
+                except sqlite3.OperationalError:
+                    if name not in {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}:
+                        raise
     from .history import initialize_history
     initialize_history(connection)
     # The product now supports US/USD only. Preserve old quotes and identities,
@@ -111,6 +122,88 @@ def _row(connection, watch_id):
     return dict(row)
 
 
+def _cooldown_until(connection, url, instant):
+    row = connection.execute('SELECT not_before FROM monitor_host_cooldowns WHERE host=?',
+                             (urlsplit(url).hostname,)).fetchone()
+    return row['not_before'] if row and parse_time(row['not_before']) > instant else None
+
+
+def _waiting(connection, watch, instant):
+    host_until = _cooldown_until(connection, watch['url'], instant)
+    retry_until = watch.get('retry_not_before')
+    if retry_until and parse_time(retry_until) <= instant:
+        retry_until = None
+    deadlines = [value for value in (host_until, retry_until) if value]
+    return (max(deadlines) if deadlines else None), host_until
+
+
+def _failure_metadata(exc, status=None):
+    code = getattr(exc, 'http_status', None)
+    if type(code) is not int or not 100 <= code <= 599:
+        code = None
+    status = status or getattr(exc, 'status', None)
+    retryable = (status == 'network_error' or code in (408, 429)
+                 or code is not None and 500 <= code <= 599)
+    retry_after = getattr(exc, 'retry_after', None)
+    try:
+        retry_after = canonical_time(retry_after) if retry_after is not None else None
+    except (TypeError, ValueError, AttributeError):
+        retry_after = None
+    response_url = getattr(exc, 'response_url', None)
+    if response_url is not None:
+        try:
+            response_url = _validate_url(response_url)['url']
+        except (TypeError, ValueError):
+            response_url = None
+    return {'http_status': code, 'retryable': bool(retryable), 'retry_after': retry_after,
+            'response_url': response_url}
+
+
+def _failure_delay(interval_minutes, failures):
+    # First failure uses the normal interval, then doubles to at most 24 hours.
+    return timedelta(minutes=min(1440, interval_minutes * 2 ** min(max(failures - 1, 0), 16)))
+
+
+def _record_host_failure(connection, url, metadata, instant, fallback):
+    code, requested = metadata['http_status'], metadata['retry_after']
+    if code != 429 and not (code == 503 and requested):
+        return
+    deadline = max(instant + fallback, parse_time(requested)) if requested else instant + fallback
+    hosts = {urlsplit(url).hostname}
+    if metadata.get('response_url'):
+        hosts.add(urlsplit(metadata['response_url']).hostname)
+    stamp = canonical_time(instant)
+    with connection:
+        for host in hosts:
+            connection.execute('''INSERT INTO monitor_host_cooldowns(host,not_before,http_status,updated_at)
+                VALUES (?,?,?,?) ON CONFLICT(host) DO UPDATE SET
+                not_before=MAX(monitor_host_cooldowns.not_before,excluded.not_before),
+                http_status=excluded.http_status,updated_at=excluded.updated_at''',
+                (host, canonical_time(deadline), code, stamp))
+
+
+def discover_for_monitor(connection, url, now=None):
+    """Discovery obeys the same persisted source cooldown as scheduled checks."""
+    from .collector import CollectorError, discover_variants, validate_product_url
+    location = validate_product_url(url)
+    instant = _now(now)
+    deadline = _cooldown_until(connection, location['url'], instant)
+    if deadline:
+        raise CollectorError('rate_limited', 'This source is waiting before its next request.',
+                             retryable=True, retry_after=parse_time(deadline))
+    try:
+        return discover_variants(location['url'])
+    except CollectorError as exc:
+        _record_host_failure(connection, location['url'], _failure_metadata(exc),
+                             _now(now), timedelta(minutes=60))
+        deadline = _cooldown_until(connection, location['url'], _now(now))
+        if deadline:
+            # The local policy can wait longer than Retry-After. Tell callers
+            # the actual persisted deadline, including on the first failure.
+            exc.retry_after = parse_time(deadline)
+        raise
+
+
 def _public(connection, row, now=None):
     instant = _now(now)
     fresh = (row['enabled'] and row['last_status'] == 'ok' and row['last_success_at'] is not None
@@ -126,6 +219,7 @@ def _public(connection, row, now=None):
     result['last_checked'] = row['last_checked_at']
     result['last_success'] = row['last_success_at']
     result['checking'] = bool(row['lease_until'] and parse_time(row['lease_until']) > instant)
+    result['next_retry_at'], result['cooldown_until'] = _waiting(connection, row, instant)
     result['metrics'] = metrics(
         connection, product_key=row['product_key'], variant_key=row['variant_key'],
         market=row['market'], currency=row['currency'], as_of=canonical_time(instant),
@@ -243,20 +337,34 @@ def _quote(watch, value):
     return result
 
 
-def _collect(connection, watch, fetcher, stage, instant):
+def _collect(connection, watch, fetcher, stage, instant, now=None):
+    from .collector import BatchQuoteCollector
+    deadline = _cooldown_until(connection, watch['url'], _now(now))
+    if deadline:
+        return {'stage': stage, 'status': 'rate_limited', 'error': 'Source cooldown is active.',
+                'quote': None, 'http_status': None, 'retryable': True,
+                'retry_after': deadline, 'attempted': False}
     try:
-        quote = _quote(watch, fetcher(dict(watch)))
-        entry = {'stage': stage, 'status': 'ok', 'error': None, 'quote': quote}
+        value = (fetcher.collect(dict(watch), stage=stage) if isinstance(fetcher, BatchQuoteCollector)
+                 else fetcher(dict(watch)))
+        quote = _quote(watch, value)
+        entry = {'stage': stage, 'status': 'ok', 'error': None, 'quote': quote,
+                 'http_status': None, 'retryable': False, 'retry_after': None, 'attempted': True}
     except Exception as exc:
         status = getattr(exc, 'status', None)
         if not isinstance(status, str) or not re.fullmatch('[a-z_]{1,64}', status):
             status = 'parse_error' if isinstance(exc, (ValueError, TypeError, KeyError)) else 'network_error'
-        entry = {'stage': stage, 'status': status, 'error': str(exc)[:500], 'quote': None}
+        entry = {'stage': stage, 'status': status, 'error': str(exc)[:500], 'quote': None,
+                 'attempted': True} | _failure_metadata(exc, status)
+        _record_host_failure(connection, watch['url'], entry, _now(now),
+                             _failure_delay(watch['interval_minutes'], watch['consecutive_failures'] + 1))
     with connection:
         connection.execute('''INSERT INTO monitor_checks
-            (watch_id,checked_at,stage,status,error,quote_json) VALUES (?,?,?,?,?,?)''',
+            (watch_id,checked_at,stage,status,error,quote_json,http_status,retryable,retry_after)
+            VALUES (?,?,?,?,?,?,?,?,?)''',
             (watch['id'], canonical_time(instant), stage, entry['status'], entry['error'],
-             json.dumps(entry['quote'], sort_keys=True) if entry['quote'] else None))
+             json.dumps(entry['quote'], sort_keys=True) if entry['quote'] else None,
+             entry['http_status'], int(entry['retryable']), entry['retry_after']))
     return entry
 
 
@@ -304,24 +412,36 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
     require_scope(watch)
     if not watch['enabled']:
         return _public(connection, watch, instant) | {'check_status': 'paused', 'alert': None, 'checks': []}
+    deadline, host_deadline = _waiting(connection, watch, instant)
+    if deadline:
+        return _public(connection, watch, instant) | {
+            'check_status': 'rate_limited' if host_deadline else 'backoff', 'alert': None, 'checks': []}
     token = uuid.uuid4().hex
     due_stamp = canonical_time(due_before) if due_before is not None else None
     with connection:
         acquired = connection.execute('''UPDATE monitor_watches SET lease_token=?,lease_until=?
             WHERE id=? AND enabled=1 AND market=? AND currency=? AND (lease_until IS NULL OR lease_until<=?)
+            AND (retry_not_before IS NULL OR retry_not_before<=?)
+            AND NOT EXISTS(SELECT 1 FROM monitor_host_cooldowns WHERE host=? AND not_before>?)
             AND (? IS NULL OR next_due_at IS NULL OR next_due_at<=?)''',
             (token, canonical_time(instant + timedelta(minutes=10)), watch_id, MARKET, CURRENCY, stamp,
+             stamp, urlsplit(watch['url']).hostname, stamp,
              due_stamp, due_stamp)).rowcount
     if not acquired:
         current = _row(connection, watch_id)
-        skip_status = 'not_due' if due_stamp and current['next_due_at'] and current['next_due_at'] > due_stamp else 'busy'
+        waiting, host_deadline = _waiting(connection, current, instant)
+        skip_status = ('rate_limited' if host_deadline else 'backoff') if waiting else (
+            'not_due' if due_stamp and current['next_due_at'] and current['next_due_at'] > due_stamp else 'busy')
         return _public(connection, current, instant) | {'check_status': skip_status, 'alert': None, 'checks': []}
     watch = _row(connection, watch_id)
     checks = []
     alert = None
     try:
         fetcher = fetcher or _fetcher()
-        first = _collect(connection, watch, fetcher, 'primary', instant)
+        first = _collect(connection, watch, fetcher, 'primary', instant, now=now)
+        if not first['attempted']:
+            return _public(connection, _row(connection, watch_id), _now(now)) | {
+                'check_status': 'rate_limited', 'alert': None, 'checks': [], 'checking': False}
         checks.append(first)
         status, error = first['status'], first['error']
         quote = first['quote']
@@ -348,7 +468,10 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                 if not current['enabled'] or current['config_version'] != watch['config_version']:
                     status, error = 'configuration_changed', 'Watch changed before confirmation; result discarded.'
                 else:
-                    confirmation = _collect(connection, watch, fetcher, 'confirmation', instant)
+                    confirmation = _collect(connection, watch, fetcher, 'confirmation', instant, now=now)
+                    if not confirmation['attempted']:
+                        return _public(connection, _row(connection, watch_id), _now(now)) | {
+                            'check_status': 'rate_limited', 'alert': None, 'checks': checks, 'checking': False}
                     checks.append(confirmation)
                     if confirmation['status'] != 'ok':
                         status, error = 'verification_failed', confirmation['error']
@@ -371,11 +494,15 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
             else:
                 updates = {'last_checked_at': finished_stamp, 'last_status': status, 'last_error': error,
                            'next_due_at': canonical_time(finished + timedelta(minutes=watch['interval_minutes'])),
-                           'lease_token': None, 'lease_until': None}
+                           'lease_token': None, 'lease_until': None,
+                           'retry_not_before': None}
                 if status == 'ok':
+                    updates['consecutive_failures'] = 0
                     if quote['price_minor'] is not None:
                         import_observations(_NoCommitConnection(connection), {'observations': [_observation(watch, quote)]})
-                    updates |= {'last_success_at': finished_stamp, 'last_price_minor': quote['price_minor'],
+                    # Cached primary pages retain their actual retrieval time;
+                    # parsing another SKU must not extend snapshot freshness.
+                    updates |= {'last_success_at': quote['captured_at'], 'last_price_minor': quote['price_minor'],
                                 'last_availability': quote['availability']}
                     if quote['availability'] != 'unknown':
                         updates['last_explicit_availability'] = quote['availability']
@@ -394,6 +521,19 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                         quote['price_minor'] > (watch['target_price_minor'] if watch['rule'] == 'target' else watch['event_threshold_minor'])
                     ):
                         updates['armed'] = 1
+                else:
+                    failures = current['consecutive_failures'] + 1
+                    updates['consecutive_failures'] = failures
+                    failed = checks[-1]
+                    if failed['retryable']:
+                        retry_at = finished + _failure_delay(watch['interval_minutes'], failures)
+                        if failed['retry_after']:
+                            retry_at = max(retry_at, parse_time(failed['retry_after']))
+                        host_until = _cooldown_until(connection, watch['url'], finished)
+                        if host_until:
+                            retry_at = max(retry_at, parse_time(host_until))
+                        updates['retry_not_before'] = canonical_time(retry_at)
+                        updates['next_due_at'] = updates['retry_not_before']
                 connection.execute(f"UPDATE monitor_watches SET {','.join(f'{key}=?' for key in updates)} WHERE id=? AND lease_token=?",
                                    tuple(updates.values()) + (watch_id, token))
         return _public(connection, _row(connection, watch_id), finished) | {'check_status': status, 'alert': alert, 'checks': checks}
@@ -403,7 +543,8 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
         finished = _now(now)
         with connection:
             connection.execute('''UPDATE monitor_watches SET last_checked_at=?,last_status=?,last_error=?,
-                next_due_at=? WHERE id=? AND lease_token=?''',
+                next_due_at=?,consecutive_failures=consecutive_failures+1,retry_not_before=NULL
+                WHERE id=? AND lease_token=?''',
                 (canonical_time(finished), 'storage_error', str(exc)[:500],
                  canonical_time(finished + timedelta(minutes=watch['interval_minutes'])), watch_id, token))
         return _public(connection, _row(connection, watch_id), finished) | {
@@ -418,6 +559,8 @@ def run_due(connection, fetcher=None, now=None, force=False):
     due = connection.execute('''SELECT id FROM monitor_watches
         WHERE enabled=1 AND market=? AND currency=? AND (? OR next_due_at IS NULL OR next_due_at<=?) ORDER BY id''',
         (MARKET, CURRENCY, int(bool(force)), canonical_time(instant))).fetchall()
+    # One cycle shares primary page snapshots; each confirmation bypasses them.
+    fetcher = fetcher if fetcher is not None else _fetcher()
     results = [_check_watch(connection, row['id'], fetcher=fetcher, now=now,
                             due_before=None if force else instant) for row in due]
     return [result for result in results if result['check_status'] != 'not_due']

@@ -65,16 +65,15 @@ def main():
             except KeyboardInterrupt:
                 stop.set()
             return
-        if args.command == 'discover':
-            from .collector import discover_variants
-            print(json.dumps(discover_variants(args.url), ensure_ascii=False, indent=2))
-            return
         from .monitor import (check_watch, create_watch, initialize_monitor,
-                              list_alerts, list_watches, run_due, update_watch)
+                              list_alerts, list_watches, run_due, update_watch,
+                              discover_for_monitor)
         connection = initialize_monitor(args.db)
         if args.command == 'init':
             result = {'database': args.db, 'schema_version': 1,
                       'observations': connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0]}
+        elif args.command == 'discover':
+            result = discover_for_monitor(connection, args.url)
         elif args.command == 'import':
             payload = load_json(args.json_file)
             if isinstance(payload, dict) and isinstance(payload.get('observations'), list):

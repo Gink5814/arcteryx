@@ -11,7 +11,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -272,6 +272,30 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(failure['status'], 'invalid_url')
             read.assert_not_called()
         self.assertEqual(self.observation_count(), 0)
+
+    def test_discovery_rate_limit_is_shared_with_checks_but_not_other_retailers(self):
+        deadline = datetime.now(timezone.utc) + timedelta(hours=2)
+        failure = CollectorError('http_error', 'SYNTHETIC rate limit', http_status=429,
+                                 retryable=True, retry_after=deadline)
+        with patch('arcteryx_prices.collector.discover_variants', side_effect=failure) as discover:
+            status, response, _ = self.request('POST', '/api/discover', {'url': PRODUCT_URL})
+            self.assertEqual(status, 429)
+            self.assertIsNotNone(response['retry_at'])
+            status, response, _ = self.request('POST', '/api/discover', {'url': PRODUCT_URL})
+            self.assertEqual(status, 429)
+            self.assertEqual(response['status'], 'rate_limited')
+            self.assertEqual(discover.call_count, 1)
+        watch = self.create()
+        status, result, _ = self.request('POST', f"/api/watches/{watch['id']}/check", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['check_status'], 'rate_limited')
+        self.fetcher.assert_not_called()
+        self.assertEqual(self.observation_count(), 0)
+        rei = self.create(url='https://www.rei.com/product/123456/arcteryx-synthetic-shell')
+        status, result, _ = self.request('POST', f"/api/watches/{rei['id']}/check", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['check_status'], 'ok')
+        self.assertEqual(self.fetcher.call_count, 2)
 
     def test_collection_failure_is_visible_without_a_current_price_or_new_alert(self):
         watch = self.create()

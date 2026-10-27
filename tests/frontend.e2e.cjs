@@ -104,6 +104,12 @@ async function handler(req, res) {
       return send(200, value);
     }
     if (req.method === 'POST' && match[2]) {
+      if (fixture.nextCheckResult) {
+        const response = fixture.nextCheckResult;
+        fixture.nextCheckResult = null;
+        Object.assign(value, response.watchChanges);
+        return send(200, { ...value, check_status: response.check_status, checks: [], alert: null });
+      }
       const count = (checks.get(value.id) || 0) + 1;
       checks.set(value.id, count);
       if (count === 1) {
@@ -332,6 +338,62 @@ async function main() {
     assert.equal(await page.locator('.watch-card').count(), 1);
     await page.locator('#reset-filters').click();
 
+    // Advance the browser clock without sleeping. Expiry must update controls
+    // even when every API field (including the deadline) remains unchanged.
+    await page.clock.setFixedTime(new Date('2026-10-27T00:00:00Z'));
+    Object.assign(fixture.watches[0], { consecutive_failures: 2,
+      retry_not_before: '2026-10-27T00:03:00Z', cooldown_until: '2026-10-27T00:05:00Z',
+      next_retry_at: '2026-10-27T00:05:00Z' });
+    await refresh();
+    const delayed = page.locator('.watch-card[data-watch-id="1"]');
+    assert.equal(await delayed.locator('[data-watch-action="check"]').isDisabled(), true);
+    assert.match(await delayed.locator('.watch-retry').innerText(), /00:05:00/);
+    assert.match(await delayed.locator('.watch-retry').innerText(), /UTC/);
+    assert.match(await delayed.locator('.watch-health').innerText(), /连续 2 次检查未成功/);
+    assert.match(await delayed.locator('.status-badge').innerText(), /页面待适配/, 'backoff does not erase the underlying failure');
+    assert.equal(await delayed.locator('.metric-current .metric-value').innerText(), '—');
+    assert.match(await delayed.locator('.price-grid').innerText(), /120\.00/, 'historical prices survive backoff');
+    assert.equal(await delayed.locator('[data-watch-action="settings"]').isEnabled(), true);
+    assert.equal(await delayed.locator('[data-watch-action="toggle"]').isEnabled(), true);
+    assert.equal(await page.locator('.watch-card[data-watch-id="3"] [data-watch-action="check"]').isEnabled(), true,
+      'a cooling source does not disable an unrelated retailer');
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+      'retry deadlines and failure details fit a mobile card');
+    if (screenshots) await delayed.screenshot({ path: path.join(screenshots, 'retry-card-synthetic.png') });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const unchangedRetryState = JSON.stringify(fixture.watches[0]);
+    await page.clock.setFixedTime(new Date('2026-10-27T00:06:00Z'));
+    await refresh();
+    assert.equal(JSON.stringify(fixture.watches[0]), unchangedRetryState);
+    assert.equal(await delayed.locator('[data-watch-action="check"]').isEnabled(), true,
+      'refresh reevaluates elapsed deadlines even if API data is identical');
+    assert.equal(await delayed.locator('.watch-retry').count(), 0);
+    assert.match(await delayed.locator('.retry-ready').innerText(), /可立即检查/);
+    // A source may start cooling between rendering and a manual request.
+    for (const [check_status, hourMinute, nextTime, message] of [
+      ['rate_limited', '00:10', '00:11', /来源暂时需要放慢检查/],
+      ['backoff', '00:15', '00:16', /尚未到重试时间/],
+    ]) {
+      const until = `2026-10-27T${hourMinute}:00Z`;
+      fixture.nextCheckResult = { check_status, watchChanges: {
+        retry_not_before: until, cooldown_until: until, next_retry_at: until } };
+      await delayed.locator('[data-watch-action="check"]').click();
+      await page.waitForFunction(() => document.querySelector('.watch-card[data-watch-id="1"] [data-watch-action="check"]')?.disabled);
+      await page.waitForFunction(expected => !document.querySelector('#feedback').hidden &&
+        document.querySelector('#feedback').textContent.includes(expected),
+      check_status === 'rate_limited' ? '来源暂时需要放慢检查' : '尚未到重试时间');
+      assert.match(await page.locator('#feedback').innerText(), message);
+      assert.doesNotMatch(await page.locator('#feedback').innerText(), /检查完成/);
+      assert.equal(checks.get(1), 2, 'skipped checks do not pretend another source attempt occurred');
+      await page.clock.setFixedTime(new Date(`2026-10-27T${nextTime}:00Z`));
+      await refresh();
+      assert.equal(await delayed.locator('[data-watch-action="check"]').isEnabled(), true);
+    }
+    Object.assign(fixture.watches[0], { consecutive_failures: 0, retry_not_before: null,
+      cooldown_until: null, next_retry_at: null });
+    await refresh();
+
     fixture.offline = true;
     await refresh();
     await page.locator('#connection-message').waitFor({ state: 'visible' });
@@ -379,7 +441,7 @@ async function main() {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'retailer filters fit mobile layout');
     assert.deepEqual(fixture.failures, []);
     assert.deepEqual(errors, [], 'no JavaScript or CSP runtime failures');
-    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, alerts, stale/offline prices, mobile and keyboard focus.');
+    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

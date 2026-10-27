@@ -183,6 +183,26 @@ function externalLink(label, url, className) {
   return link;
 }
 
+function retryDeadline(watch, now = Date.now()) {
+  const times = [watch.retry_not_before, watch.cooldown_until, watch.next_retry_at]
+    .filter(value => typeof value === "string")
+    .map(value => Date.parse(value))
+    .filter(value => Number.isFinite(value) && value > now);
+  return times.length ? Math.max(...times) : null;
+}
+
+function retryDateTime(timestamp) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit",
+    minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZoneName: "short",
+  }).format(new Date(timestamp));
+}
+
+function waitingMessage(watch, prefix = "已暂缓检查") {
+  const deadline = retryDeadline(watch);
+  return deadline ? `${prefix}，可在 ${retryDateTime(deadline)} 后再检查。` : `${prefix}，等待下一次状态同步。`;
+}
+
 function hasCurrentPrice(watch) {
   return connected && !watch.stale && watch.current_price_minor !== null &&
     watch.current_price_minor !== undefined &&
@@ -194,6 +214,7 @@ function statusInfo(watch) {
   if (!connected) return { text: "连接中断", tone: "warning" };
   if (watch.checking || pending.has(`check-${watch.id}`)) return { text: "正在检查", tone: "neutral" };
   const statuses = {
+    rate_limited: "来源暂缓检查", backoff: "等待重试",
     network_error: "连接失败", http_error: "来源请求失败", parse_error: "页面待适配",
     identity_mismatch: "变体待确认", currency_mismatch: "币种不一致",
     availability_unknown: "库存待确认", verification_failed: "复核未通过",
@@ -294,6 +315,7 @@ async function refresh() {
     syncWriteControls();
     updateForm();
     if (changed) render();
+    else renderWatches(); // A retry deadline can expire while the API payload stays identical.
   } catch (error) {
     if (current !== sequence) return;
     connected = false;
@@ -456,10 +478,23 @@ function watchCard(watch) {
   if (watch.last_checked_at && watch.last_checked_at !== watch.last_success_at) {
     health.append(node("div", "", `最近检查：${dateTime(watch.last_checked_at)}`));
   }
+  const retryAt = watch.enabled ? retryDeadline(watch) : null;
+  const failures = Number.isSafeInteger(watch.consecutive_failures) && watch.consecutive_failures > 0 ? watch.consecutive_failures : 0;
+  if (failures) health.append(node("div", "health-warning", `连续 ${failures} 次检查未成功`));
+  if (retryAt) {
+    const retry = node("div", "watch-retry");
+    retry.append(node("strong", "", "已暂缓检查"),
+      node("span", "", `下次可检查：${retryDateTime(retryAt)}`),
+      node("span", "retry-detail", connected ? "监控会按计划重试，提醒设置和暂停仍可使用。" : "连接恢复后，将继续同步检查安排。"));
+    health.append(retry);
+  } else if (connected && watch.enabled && failures) {
+    health.append(node("div", "retry-ready", "等待重试已结束，可立即检查。"));
+  }
   const actions = node("div", "watch-actions");
-  const check = node("button", "compact-button", pending.has(`check-${watch.id}`) ? "正在检查…" : "立即检查");
+  const check = node("button", "compact-button", pending.has(`check-${watch.id}`) ? "正在检查…" : retryAt ? "等待重试" : "立即检查");
   check.type = "button";
-  check.disabled = !state.csrf_token || !watch.enabled || watch.checking || pending.has(`check-${watch.id}`);
+  check.disabled = !state.csrf_token || !watch.enabled || watch.checking || pending.has(`check-${watch.id}`) || retryAt !== null;
+  if (retryAt) check.title = `下次可检查：${retryDateTime(retryAt)}`;
   check.setAttribute("aria-label", `立即检查 ${watch.label || watch.sku}`);
   setActionIdentity(check, watch, "check");
   check.addEventListener("click", () => checkWatch(watch));
@@ -553,7 +588,7 @@ function renderWatches() {
   }
   const cards = watches.map((watch) => {
     const id = String(watch.id);
-    const key = signature({ watch, connected, token: Boolean(state.csrf_token),
+    const key = signature({ watch, connected, token: Boolean(state.csrf_token), retryAt: retryDeadline(watch),
       checkPending: pending.has(`check-${id}`), togglePending: pending.has(`toggle-${id}`) });
     let cached = cardCache.get(id);
     if (!cached || cached.signature !== key) {
@@ -739,11 +774,17 @@ function restoreActionFocus(watchId, action) {
 async function checkWatch(watch) {
   const key = `check-${watch.id}`;
   if (pending.has(key)) return;
+  if (retryDeadline(watch)) { showFeedback(waitingMessage(watch)); return; }
   pending.add(key); renderWatches();
   try {
-    await api(`/api/watches/${encodeURIComponent(watch.id)}/check`, { method: "POST", body: "{}" });
+    const response = await api(`/api/watches/${encodeURIComponent(watch.id)}/check`, { method: "POST", body: "{}" });
     await refresh();
     const current = state.watches.find((item) => item.id === watch.id);
+    if (["rate_limited", "backoff"].includes(response.check_status)) {
+      showFeedback(waitingMessage(current || response,
+        response.check_status === "rate_limited" ? "来源暂时需要放慢检查" : "尚未到重试时间"));
+      return;
+    }
     const info = current ? statusInfo({ ...current, id: null }) : null;
     showFeedback(info ? `检查完成：${info.text}。` : "检查请求已完成。", info?.tone === "warning" || info?.tone === "error");
   } catch (error) { showFeedback(error.message, true); }

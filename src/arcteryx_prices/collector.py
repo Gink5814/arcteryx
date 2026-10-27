@@ -10,8 +10,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import date, datetime, timezone
+from collections import OrderedDict
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -25,6 +27,7 @@ MAX_JSONLD_DOCUMENTS = 32
 MAX_JSONLD_NODES = 20000
 MAX_DISCOVERY_VARIANTS = 256
 REQUEST_TIMEOUT_SECONDS = 20
+MAX_BATCH_PAGES = 8
 ALLOWED_HOSTS = frozenset({'arcteryx.com', 'outlet.arcteryx.com', 'rei.com', 'www.rei.com'})
 MARKET_CURRENCIES = {MARKET: CURRENCY}
 
@@ -44,9 +47,54 @@ def supported_retailers() -> list[dict]:
 class CollectorError(Exception):
     """A classified failure that must not become a price observation."""
 
-    def __init__(self, status: str, message: str):
+    def __init__(self, status: str, message: str, *, http_status: int | None = None,
+                 retryable: bool = False, retry_after: datetime | None = None,
+                 response_url: str | None = None):
         self.status = status
+        self.http_status = http_status
+        self.retryable = retryable
+        self.retry_after = retry_after
+        self.response_url = response_url
         super().__init__(message)
+
+
+def _retry_after(value: str | None, now: datetime | None = None) -> datetime | None:
+    """Parse a server not-before value without sleeping or shortening its delay.
+
+    Oversized/unparseable headers are ignored. A numeric delay beyond Python's
+    calendar range saturates to its latest UTC instant, rather than overflowing
+    into an immediate retry. Past dates permit a retry now; monitor policy may
+    independently require a longer failure backoff.
+    """
+    if not isinstance(value, str) or len(value) > 128:
+        return None
+    value = value.strip()
+    now = now or datetime.now(timezone.utc)
+    if re.fullmatch(r'[0-9]+', value):
+        try:
+            return now + timedelta(seconds=int(value))
+        except OverflowError:
+            return datetime.max.replace(tzinfo=timezone.utc)
+    try:
+        boundary = parsedate_to_datetime(value)
+        if boundary.tzinfo is None or boundary.utcoffset() is None:
+            return None
+        return max(now, boundary.astimezone(timezone.utc))
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def _http_failure(code: int, headers, response_url: str | None = None) -> CollectorError:
+    try:
+        response_url = validate_product_url(response_url)['url'] if response_url is not None else None
+    except CollectorError:
+        response_url = None
+    return CollectorError(
+        'http_error', f'Product request returned HTTP {code}', http_status=code,
+        retryable=code in {408, 429} or 500 <= code <= 599,
+        retry_after=_retry_after(headers.get('Retry-After')) if headers is not None else None,
+        response_url=response_url,
+    )
 
 
 def validate_product_url(url: str) -> dict:
@@ -115,7 +163,7 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
                     final['retailer_key'] != validate_product_url(url)['retailer_key']):
                 raise CollectorError('redirect_blocked', 'Final response changed the watched market or retailer')
             if response.status != 200:
-                raise CollectorError('http_error', f'Product page returned HTTP {response.status}')
+                raise _http_failure(response.status, response.headers, final['url'])
             mime = response.headers.get_content_type()
             if mime not in {'text/html', 'application/xhtml+xml'}:
                 raise CollectorError('content_type_error', 'Product response is not HTML')
@@ -131,10 +179,11 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
     except CollectorError:
         raise
     except HTTPError as exc:
-        raise CollectorError('http_error', f'Product request returned HTTP {exc.code}') from exc
+        raise _http_failure(exc.code, exc.headers, exc.url) from exc
     except (URLError, OSError, TimeoutError, ValueError) as exc:
         # Do not include error bodies, authentication headers or proxy details.
-        raise CollectorError('network_error', f'Product request failed ({type(exc).__name__})') from exc
+        raise CollectorError('network_error', f'Product request failed ({type(exc).__name__})',
+                             retryable=True) from exc
 
 
 class _JsonLdParser(HTMLParser):
@@ -410,8 +459,7 @@ def discover_variants(url: str) -> dict:
     return result
 
 
-def collect_quote(watch: dict) -> dict:
-    """Fetch a single precise public new-item offer, or fail without guessing."""
+def _validated_watch(watch: dict) -> dict:
     if not isinstance(watch, dict):
         raise CollectorError('invalid_watch', 'Watch must be a dictionary')
     for key in ('url', 'sku', 'color', 'size', 'market', 'currency'):
@@ -420,11 +468,59 @@ def collect_quote(watch: dict) -> dict:
     validated = validate_product_url(watch['url'])
     if (watch['market'], watch['currency']) != (validated['market'], validated['currency']):
         raise CollectorError('currency_mismatch', 'Watch market/currency does not match its product URL')
-    normalized_watch = watch | {'url': validated['url']}
-    body, final_url = _read_page(validated['url'], validated['market'])
-    quote = _parse_quote(body, normalized_watch)
-    now = datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')
-    return quote | {key: watch[key] for key in ('sku', 'color', 'size', 'market', 'currency')} | {
-        'observed_at': now, 'captured_at': now, 'source_url': final_url,
-        'evidence_sha256': hashlib.sha256(body).hexdigest(),
-    }
+    return watch | {'url': validated['url']}
+
+
+class BatchQuoteCollector:
+    """Share primary HTML within one scheduler cycle, never confirmations.
+
+    Every SKU is parsed independently with its own color/size/stock checks. The
+    cache stores at most eight bounded responses (32 MiB total HTML). Callers
+    create a new collector per cycle: this is not a persistent price cache and
+    cannot manufacture a new observation time from an old response.
+    """
+
+    def __init__(self, max_pages: int = MAX_BATCH_PAGES):
+        if type(max_pages) is not int or not 1 <= max_pages <= MAX_BATCH_PAGES:
+            raise ValueError(f'max_pages must be an integer from 1 to {MAX_BATCH_PAGES}')
+        self.max_pages = max_pages
+        self._pages = OrderedDict()
+
+    def __call__(self, watch: dict) -> dict:
+        return self.collect(watch)
+
+    def collect(self, watch: dict, stage: str = 'primary') -> dict:
+        if stage not in {'primary', 'confirmation'}:
+            raise ValueError('stage must be primary or confirmation')
+        watch = _validated_watch(watch)
+        key = watch['url']
+        if stage == 'primary' and key in self._pages:
+            page = self._pages.pop(key)
+            self._pages[key] = page
+        else:
+            try:
+                body, final_url = _read_page(key, watch['market'])
+                stamp = datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')
+                page = (body, final_url, stamp, hashlib.sha256(body).hexdigest())
+            except CollectorError as exc:
+                # Retain safe metadata, not exception tracebacks or raw headers.
+                page = {'status': exc.status, 'message': str(exc), 'http_status': exc.http_status,
+                        'retryable': exc.retryable, 'retry_after': exc.retry_after,
+                        'response_url': exc.response_url}
+            if stage == 'primary':
+                self._pages[key] = page
+                while len(self._pages) > self.max_pages:
+                    self._pages.popitem(last=False)
+        if isinstance(page, dict):
+            raise CollectorError(**page)
+        body, final_url, stamp, digest = page
+        quote = _parse_quote(body, watch, observed_at=stamp)
+        return quote | {key: watch[key] for key in ('sku', 'color', 'size', 'market', 'currency')} | {
+            'observed_at': stamp, 'captured_at': stamp, 'source_url': final_url,
+            'evidence_sha256': digest,
+        }
+
+
+def collect_quote(watch: dict) -> dict:
+    """Fetch one precise public new-item offer; no cache survives this call."""
+    return BatchQuoteCollector().collect(watch)

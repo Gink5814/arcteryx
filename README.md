@@ -12,6 +12,8 @@
 - [运行、监控规则与实际验证](docs/monitoring.md)
 - [价格数据库和三项历史指标](docs/database.md)
 - [首轮工具调研](docs/research.md)
+- [五个成熟开源项目的源码比较与采集优化](docs/open-source-monitoring-review.md)
+- [优化后的真实采集验证：5 个关注、4 次页面读取](research/resilience-live-validation.json)
 - [真实采集验证记录](research/live-monitor-validation.json)
 - [当前美国范围验证：5 个关注、12 条历史参考](research/us-scope-validation.json)
 - [第三方零售商与历史资料：接入范围和回填条件](docs/retailers-and-history.md)
@@ -27,6 +29,8 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 
 ```
 
 服务绑定本机 `127.0.0.1:8080`，后台每 30 秒检查调度状态，每个关注默认 60 分钟采集一次。用户可在界面中立即检查、暂停或恢复。服务关闭后不会继续监控；新任务需要重新启动。
+
+临时网络故障会逐步延长重试间隔；商家限流时保存其等待截止时间，重启后继续遵守。立即检查和读取变体也遵守商家的等待要求，卡片会显示下次可检查时间。同一轮中，同一商品页的不同尺码共用初次页面读取，提醒复核仍独立重新请求。
 
 工作台包含美国关注清单、价格历史、覆盖天数及站内提醒。提醒经两次读取确认并去重。尚未连接邮件服务或实现浏览器扩展；本版为单用户本地工具，不支持直接开放到公网。
 

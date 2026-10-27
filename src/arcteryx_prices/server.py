@@ -160,13 +160,21 @@ class Handler(BaseHTTPRequestHandler):
             payload = self.read_payload()
             parts = urlsplit(self.path).path.strip('/').split('/')
             if parts == ['api', 'discover'] and self.command == 'POST':
-                from .collector import CollectorError, discover_variants
+                from .collector import CollectorError
+                from .monitor import discover_for_monitor
+                from .database import canonical_time
                 if set(payload) != {'url'}:
                     raise ValueError('Discovery expects only a product URL')
                 try:
-                    self.json(200, discover_variants(payload['url']))
+                    with connection(self.server.database_path) as database:
+                        result = discover_for_monitor(database, payload['url'])
+                    self.json(200, result)
                 except CollectorError as exc:
-                    self.json(422, {'error': str(exc), 'status': exc.status})
+                    limited = exc.status == 'rate_limited' or exc.http_status == 429
+                    self.json(429 if limited else 422, {
+                        'error': str(exc), 'status': exc.status,
+                        'retry_at': canonical_time(exc.retry_after) if exc.retry_after else None,
+                    })
                 return
             with connection(self.server.database_path) as database:
                 if parts == ['api', 'watches'] and self.command == 'POST':
