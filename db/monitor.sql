@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS monitor_watches (
     product_key TEXT NOT NULL,
     variant_key TEXT NOT NULL,
     offer_key TEXT NOT NULL,
+    retailer_key TEXT NOT NULL DEFAULT 'arcteryx-official',
+    retailer_name TEXT NOT NULL DEFAULT 'Arc''teryx official',
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
     rule TEXT NOT NULL CHECK (rule IN ('target','new_low','restock')),
     target_price_minor INTEGER,

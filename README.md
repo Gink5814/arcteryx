@@ -1,10 +1,10 @@
 # Arc'teryx 北美价格监控
 
-面向美国和加拿大的本地监控工作台：粘贴官方商品链接，读取颜色和尺码，关注目标价、已观测新低或补货。美国 USD、加拿大 CAD 独立统计。
+面向美国和加拿大的本地监控工作台：粘贴官网、Outlet 或 REI 美国站商品链接，读取颜色和尺码，关注目标价、已观测新低或补货。美国 USD、加拿大 CAD 独立统计。
 
-前端包括关注清单、价格记录、提醒中心和购买指南四个视图。支持名称/颜色/尺码搜索、市场与状态筛选、按币种分组排序，以及在页面直接调整目标价、提醒规则和检查间隔。手机端使用紧凑导航与单列卡片。
+前端包括关注清单、价格记录、提醒中心和购买指南四个视图。支持名称/颜色/尺码/商家搜索、商家/市场/状态筛选、按币种分组排序，以及在页面直接调整目标价、提醒规则和检查间隔。价格记录页另列带原文来源的历史促销参考，明确标注是否计入指标。手机端使用紧凑导航与单列卡片。
 
-[查看桌面截图](docs/screenshots/dashboard-desktop.png) · [查看手机截图](docs/screenshots/dashboard-mobile.png)
+[查看桌面截图](docs/screenshots/dashboard-desktop.png) · [查看手机截图](docs/screenshots/dashboard-mobile.png) · [历史来源页面](docs/screenshots/history-sources.png)
 
 ![连接实际工作数据库的前端](docs/screenshots/dashboard-desktop.png)
 
@@ -13,6 +13,8 @@
 - [价格数据库和三项历史指标](docs/database.md)
 - [首轮工具调研](docs/research.md)
 - [真实采集验证记录](research/live-monitor-validation.json)
+- [第三方零售商与历史资料：接入范围和回填条件](docs/retailers-and-history.md)
+- [历史促销来源核查](docs/history-source-research.md)
 
 ## 启动
 
@@ -31,7 +33,9 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 
 
 2026-10-26（America/Denver）已真实验证美国官网、加拿大官网和美国 Outlet 的明确变体。工作库中建立了 4 个试点关注，采到 3 个现货报价和 1 个缺货报价；它们用于验证不同地区和库存状态，不代表用户已经选择这些款式。
 
-首批记录从本次采集开始，没有补造历史。365 天最低价、90 天每日最低价均值会同时显示实际覆盖天数。未来价格、库存和页面结构可能变化，具体快照见验证记录。加拿大 Outlet 尚未完成真实验证。
+新增 REI 美国站的真实商品页采集，实际工作库已增加 2 个 REI 试点关注，共 6 个关注项；加拿大第三方来源因访问受限或未取得足够商品数据，尚未接通。已将 12 条 2025—2026 年的真实历史促销报道导入工作库的独立参考表，也可用下方命令在新库重建。报道的原帖日期、价格、条件和来源均保留，但不冒充零售商已核验的具体尺码库存。详见 [本次入库与监控验证](research/retailer-history-live-validation.json)。
+
+指标记录从实际采集开始，没有补造历史。365 天最低价、90 天每日最低价均值会同时显示实际覆盖天数。历史报道未通过精确变体存档核验，不计入这些指标；本次尚未取得合格的旧变体存档。未来价格、库存和页面结构可能变化，具体快照见验证记录。加拿大 Outlet 尚未完成真实验证。
 
 关注记录按 URL 和 SKU 独立保存，当前看板不会自动将官网、Outlet、不同语言页面或不同代产品合并。数据库的底层指标支持明确映射后的跨店比较，但自动商品匹配尚未实现。
 
@@ -40,6 +44,7 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 
 ```bash
 # 发现真实页面中的明确变体
 PYTHONPATH=src python3 -m arcteryx_prices discover https://arcteryx.com/us/en/shop/mens/beta-jacket-0868
+PYTHONPATH=src python3 -m arcteryx_prices discover https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
 
 # 添加一个示例真实商品关注（价格会实时读取；重复关注会被拒绝）
 PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 watch-add examples/watch.us.json
@@ -47,6 +52,10 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 watch-add exa
 PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 watch-list
 PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 check --watch-id 1
 PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 alerts
+
+# 导入实际取得的历史促销参考（幂等；不增加指标观测）
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-import research/historical-price-evidence.json
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-list
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 

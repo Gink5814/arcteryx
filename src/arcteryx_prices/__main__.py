@@ -16,6 +16,12 @@ def main():
     commands.add_parser('init', help='Create or validate the schema; does not seed historical prices')
     importer = commands.add_parser('import', help='Atomically import a JSON observations array')
     importer.add_argument('json_file')
+    history_import = commands.add_parser('history-import', help='Import cited historical reports as references, excluded from price metrics')
+    history_import.add_argument('json_file')
+    commands.add_parser('history-list', help='List historical references and verified metric inclusion')
+    history_backfill = commands.add_parser('history-backfill', help='Fetch and verify a primary retailer archive for one exact watched variant')
+    history_backfill.add_argument('--evidence-key', required=True)
+    history_backfill.add_argument('--watch-id', required=True, type=int)
     query = commands.add_parser('metrics', help='Query observed historical metrics for one variant and market')
     for name in ('product-key', 'variant-key', 'market', 'currency'):
         query.add_argument(f'--{name}', required=True)
@@ -38,7 +44,7 @@ def main():
     check = commands.add_parser('check', help='Collect and verify one watch, or all due watches')
     check.add_argument('--watch-id', type=int)
     check.add_argument('--force', action='store_true', help='Check all enabled watches even when not due')
-    discover = commands.add_parser('discover', help='Read verified color/size variants from an official product page')
+    discover = commands.add_parser('discover', help='Read verified color/size variants from a supported retailer product page')
     discover.add_argument('url')
     args = parser.parse_args()
     connection = None
@@ -70,6 +76,15 @@ def main():
                       'observations': connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0]}
         elif args.command == 'import':
             result = import_observations(connection, load_json(args.json_file))
+        elif args.command == 'history-import':
+            from .history import import_evidence
+            result = import_evidence(connection, load_json(args.json_file))
+        elif args.command == 'history-list':
+            from .history import list_evidence
+            result = list_evidence(connection)
+        elif args.command == 'history-backfill':
+            from .history import backfill_evidence
+            result = backfill_evidence(connection, args.evidence_key, args.watch_id)
         elif args.command == 'metrics':
             result = metrics(connection, product_key=args.product_key, variant_key=args.variant_key,
                              market=args.market, currency=args.currency, as_of=args.as_of,

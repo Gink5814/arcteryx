@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .history import list_evidence
+from .collector import supported_retailers
 from .monitor import (check_watch, create_watch, initialize_monitor, list_alerts,
                       list_watches, run_due, update_watch)
 
@@ -103,8 +105,13 @@ class Handler(BaseHTTPRequestHandler):
                 with connection(self.server.database_path) as database:
                     state = {'watches': list_watches(database), 'alerts': list_alerts(database),
                              'csrf_token': self.server.csrf_token,
-                             'scope': ['US/USD', 'CA/CAD'], 'notifications': 'in_app'}
+                             'scope': ['US/USD', 'CA/CAD'], 'notifications': 'in_app',
+                             'historical_evidence': list_evidence(database),
+                             'supported_retailers': supported_retailers()}
                 self.json(200, state)
+            elif path == '/api/history-evidence':
+                with connection(self.server.database_path) as database:
+                    self.json(200, {'evidence': list_evidence(database)})
             elif path == '/api/health':
                 with connection(self.server.database_path) as database:
                     database.execute('SELECT 1').fetchone()

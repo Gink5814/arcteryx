@@ -1,6 +1,6 @@
 # 北美监控 MVP 的运行与验证
 
-支持美国官网、加拿大官网和官方 Outlet 的 US/CA 商品链接，只读取公开商品页。通过页面 Product / ProductGroup JSON-LD 精确匹配 SKU、颜色、尺码、币种、全新商品条件、公开价格和库存。
+支持美国官网、加拿大官网、官方 Outlet 的 US/CA 商品链接，以及 REI 美国站商品链接，只读取公开商品页。通过页面 Product / ProductGroup JSON-LD 精确匹配 SKU、颜色、尺码、币种、全新商品条件、公开价格和库存。REI 额外核对 Arc'teryx 品牌归属及变体所属商品组。
 
 ## 使用流程
 
@@ -46,7 +46,7 @@
 | 美国 Outlet Alpha SL Jacket | Black / M | X000010287010 | USD 350，现货 |
 | 美国 Outlet Alpha SL Jacket | Black / XS | X000010287008 | USD 350，缺货；不显示为当前可购价 |
 
-以上为单次公开标价，不含税运，不是价格承诺或完整历史。加拿大 Outlet、其他零售商、长周期稳定性仍未验证。
+以上为首次官方来源的单次公开标价，不含税运，不是价格承诺或完整历史。后续新增 REI 美国站验证见 [零售商记录](../research/third-party-retailers.json)。加拿大 Outlet、加拿大第三方零售商、长周期稳定性仍未验证。历史促销参考另行导入和展示，不能当成当前关注的完整价格曲线，详见 [第三方与历史说明](retailers-and-history.md)。
 
 初次网络检查曾被策略阻止；后续正确商品路径已可读取。旧的无型号后缀链接出现过 404/406，不能据此认定所有官网不可访问。当前使用明确标识监控器的兼容 User-Agent，保留代理和 TLS 验证，不绕过认证或验证码。
 
@@ -55,7 +55,8 @@
 | 方法和路径 | 用途 |
 | --- | --- |
 | `GET /api/health` | 检查服务与数据库可访问性，不代表所有远端来源健康 |
-| `GET /api/state` | 关注、历史指标、站内提醒和写请求所需 token |
+| `GET /api/state` | 关注、历史指标、站内提醒、来源能力、历史参考和写请求所需 token |
+| `GET /api/history-evidence` | 历史证据、来源和是否经过精确变体核验；只读 |
 | `POST /api/discover` | 用 `{ "url": "..." }` 读取可验证变体 |
 | `POST /api/watches` | 添加关注 |
 | `PATCH /api/watches/{id}` | 调整 `enabled`、提醒规则、目标价或间隔 |

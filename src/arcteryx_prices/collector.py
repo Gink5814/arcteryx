@@ -1,4 +1,4 @@
-"""Conservative first-party JSON-LD quote collector (standard library only).
+"""Conservative retailer JSON-LD quote collector (standard library only).
 
 This is a parser contract, not a claim that Arc'teryx publishes this complete
 variant schema. Missing identity, public/new conditions or stock evidence fails
@@ -23,8 +23,20 @@ MAX_JSONLD_DOCUMENTS = 32
 MAX_JSONLD_NODES = 20000
 MAX_DISCOVERY_VARIANTS = 256
 REQUEST_TIMEOUT_SECONDS = 20
-ALLOWED_HOSTS = frozenset({'arcteryx.com', 'outlet.arcteryx.com'})
+ALLOWED_HOSTS = frozenset({'arcteryx.com', 'outlet.arcteryx.com', 'rei.com', 'www.rei.com'})
 MARKET_CURRENCIES = {'US': 'USD', 'CA': 'CAD'}
+
+
+def supported_retailers() -> list[dict]:
+    """Sources with a live-verified parser, not a promise of every product."""
+    return [
+        {'key': 'arcteryx-official', 'name': "Arc'teryx official", 'markets': ['US', 'CA'],
+         'hosts': ['arcteryx.com', 'outlet.arcteryx.com'],
+         'example_url': 'https://arcteryx.com/us/en/shop/mens/beta-jacket-0868'},
+        {'key': 'rei', 'name': 'REI Co-op', 'markets': ['US'],
+         'hosts': ['rei.com', 'www.rei.com'],
+         'example_url': 'https://www.rei.com/product/228617/arcteryx-beta-jacket-mens'},
+    ]
 
 
 class CollectorError(Exception):
@@ -36,7 +48,7 @@ class CollectorError(Exception):
 
 
 def validate_product_url(url: str) -> dict:
-    """Restrict requests to first-party US/CA product paths, including redirects."""
+    """Restrict requests to verified North American retailer product paths."""
     if not isinstance(url, str) or len(url) > 4096 or re.search(r'\s|[\x00-\x1f\x7f]', url):
         raise CollectorError('invalid_url', 'URL must be a bounded HTTPS URL without whitespace')
     try:
@@ -47,15 +59,23 @@ def validate_product_url(url: str) -> dict:
     if (parsed.scheme != 'https' or parsed.hostname not in ALLOWED_HOSTS
             or parsed.username is not None or parsed.password is not None
             or port not in (None, 443)):
-        raise CollectorError('invalid_url', 'Only HTTPS arcteryx.com and outlet.arcteryx.com are allowed')
+        raise CollectorError('invalid_url', 'Only HTTPS product URLs from supported retailers are allowed')
     # Plain product slugs prevent encoded separators, dot traversal and ambiguous
     # path normalization. At least a category and a product slug are required.
-    match = re.fullmatch(r'/(us/en|ca/en|ca/fr)/shop/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+/?', parsed.path)
-    if not match:
-        raise CollectorError('invalid_url', 'Expected a US English or Canadian English/French product path')
-    market = 'US' if match.group(1) == 'us/en' else 'CA'
-    normalized = urlunsplit(('https', parsed.hostname, parsed.path, parsed.query, ''))
-    return {'url': normalized, 'market': market, 'currency': MARKET_CURRENCIES[market]}
+    if parsed.hostname in {'rei.com', 'www.rei.com'}:
+        if not re.fullmatch(r'/product/[A-Za-z0-9]+/arcteryx-[A-Za-z0-9-]+/?', parsed.path):
+            raise CollectorError('invalid_url', 'Expected an REI Arc\'teryx product path')
+        market, host = 'US', 'www.rei.com'
+        retailer = {'retailer_key': 'rei', 'retailer_name': 'REI Co-op'}
+    else:
+        match = re.fullmatch(r'/(us/en|ca/en|ca/fr)/shop/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+/?', parsed.path)
+        if not match:
+            raise CollectorError('invalid_url', 'Expected a US English or Canadian English/French product path')
+        market = 'US' if match.group(1) == 'us/en' else 'CA'
+        host = parsed.hostname
+        retailer = {'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official"}
+    normalized = urlunsplit(('https', host, parsed.path, parsed.query, ''))
+    return {'url': normalized, 'market': market, 'currency': MARKET_CURRENCIES[market]} | retailer
 
 
 class _StrictRedirectHandler(HTTPRedirectHandler):
@@ -72,6 +92,8 @@ class _StrictRedirectHandler(HTTPRedirectHandler):
             raise CollectorError('redirect_blocked', 'Redirect left the allowed HTTPS product hosts/paths') from exc
         if target['market'] != self.market:
             raise CollectorError('redirect_blocked', 'Redirect changed the watched market')
+        if target['retailer_key'] != validate_product_url(req.full_url)['retailer_key']:
+            raise CollectorError('redirect_blocked', 'Redirect changed the watched retailer')
         return super().redirect_request(req, fp, code, msg, headers, target['url'])
 
 
@@ -87,8 +109,9 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
     try:
         with opener.open(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
             final = validate_product_url(response.geturl())
-            if final['market'] != market:
-                raise CollectorError('redirect_blocked', 'Final response changed the watched market')
+            if (final['market'] != market or
+                    final['retailer_key'] != validate_product_url(url)['retailer_key']):
+                raise CollectorError('redirect_blocked', 'Final response changed the watched market or retailer')
             if response.status != 200:
                 raise CollectorError('http_error', f'Product page returned HTTP {response.status}')
             mime = response.headers.get_content_type()
@@ -179,8 +202,8 @@ def _price_minor(value):
         raise CollectorError('price_error', 'Offer price must be positive with at most two decimal places') from exc
 
 
-def _check_offer_dates(offer):
-    now = datetime.now(timezone.utc)
+def _check_offer_dates(offer, observed_at=None):
+    now = observed_at or datetime.now(timezone.utc)
     for key in ('priceValidUntil', 'validFrom', 'validThrough'):
         value = offer.get(key)
         if value is None:
@@ -235,7 +258,7 @@ def _document_nodes(body: bytes) -> tuple[list, dict]:
     return nodes, indexed
 
 
-def _quote_from_products(products: list, indexed: dict, watch: dict) -> dict:
+def _quote_from_products(products: list, indexed: dict, watch: dict, observed_at=None) -> dict:
     def resolve(value):
         return indexed.get(value.get('@id'), value) if isinstance(value, dict) else value
 
@@ -261,13 +284,26 @@ def _quote_from_products(products: list, indexed: dict, watch: dict) -> dict:
                 if any(offer.get(key) is not None for key in (
                     'eligibleCustomerType', 'eligibleQuantity', 'eligibleTransactionVolume',
                     'membershipPointsEarned', 'discountCode', 'coupon',
-                )) or offer.get('priceSpecification') is not None:
-                    raise CollectorError('unsupported_offer', 'Conditional, member, quantity and specification prices are excluded')
+                )):
+                    raise CollectorError('unsupported_offer', 'Conditional, member and quantity prices are excluded')
+                specification = offer.get('priceSpecification')
+                if specification is not None:
+                    # REI publishes the crossed-out MSRP separately on sale
+                    # offers. Only this observed, non-conditional ListPrice
+                    # shape is allowed; the charged price remains Offer.price.
+                    is_rei = validate_product_url(watch['url'])['retailer_key'] == 'rei'
+                    if (not is_rei or not isinstance(specification, dict)
+                            or set(specification) != {'@type', 'priceType', 'priceCurrency', 'price'}
+                            or not _has_type(specification, 'UnitPriceSpecification')
+                            or _schema_name(specification.get('priceType')) != 'ListPrice'
+                            or specification.get('priceCurrency') != watch['currency']
+                            or _price_minor(specification.get('price')) < _price_minor(offer.get('price'))):
+                        raise CollectorError('unsupported_offer', 'Unverified price specifications are excluded')
                 if _schema_name(offer.get('itemCondition')) != 'NewCondition':
                     raise CollectorError('condition_unknown', 'Offer must explicitly identify new item condition')
                 if offer.get('priceCurrency') != watch['currency']:
                     raise CollectorError('currency_mismatch', 'Offer currency does not match the watched market')
-                _check_offer_dates(offer)
+                _check_offer_dates(offer, observed_at)
                 offered_item = resolve(offer.get('itemOffered'))
                 if offered_item is not None:
                     if not isinstance(offered_item, dict) or any(
@@ -280,6 +316,8 @@ def _quote_from_products(products: list, indexed: dict, watch: dict) -> dict:
                     offer_url = validate_product_url(urljoin(watch['url'], offer['url']))
                     if offer_url['market'] != watch['market']:
                         raise CollectorError('currency_mismatch', 'Offer URL belongs to a different market')
+                    if offer_url['retailer_key'] != validate_product_url(watch['url'])['retailer_key']:
+                        raise CollectorError('identity_mismatch', 'Offer URL belongs to a different retailer')
                 stock = _schema_name(offer.get('availability'))
                 availability = {'InStock': 'in_stock', 'OutOfStock': 'out_of_stock', 'SoldOut': 'out_of_stock'}.get(stock)
                 if availability is None:
@@ -294,9 +332,40 @@ def _quote_from_products(products: list, indexed: dict, watch: dict) -> dict:
     return candidates[0]
 
 
-def _parse_quote(body: bytes, watch: dict) -> dict:
+def _retailer_products(nodes: list, watch: dict) -> list:
+    if validate_product_url(watch['url'])['retailer_key'] == 'rei':
+        # REI also sells many other brands. Only the explicitly branded group's
+        # variant nodes establish identity; unrelated recommendations never do.
+        groups = [node for node in nodes if _has_type(node, 'ProductGroup')]
+        if len(groups) != 1 or _text(groups[0].get('brand')) not in {"arc'teryx", 'arc’teryx'}:
+            raise CollectorError('brand_mismatch', "REI page must identify one Arc'teryx ProductGroup")
+        return [node for node in _walk(groups[0].get('hasVariant', [])) if _has_type(node, 'Product')]
+    return [node for node in nodes if _has_type(node, 'Product')]
+
+
+def _parse_quote(body: bytes, watch: dict, *, observed_at=None) -> dict:
+    """Parse live or dated snapshot HTML without retrieving any linked data."""
+    if observed_at is not None:
+        try:
+            if isinstance(observed_at, str):
+                observed_at = datetime.fromisoformat(observed_at.replace('Z', '+00:00'))
+            if not isinstance(observed_at, datetime) or observed_at.utcoffset() is None:
+                raise ValueError
+            observed_at = observed_at.astimezone(timezone.utc)
+        except (TypeError, ValueError) as exc:
+            raise CollectorError('invalid_timestamp', 'Snapshot time must include a UTC offset') from exc
     nodes, indexed = _document_nodes(body)
-    return _quote_from_products([node for node in nodes if _has_type(node, 'Product')], indexed, watch)
+    return _quote_from_products(_retailer_products(nodes, watch), indexed, watch, observed_at)
+
+
+def parse_product_html(body: bytes, watch: dict, *, observed_at=None) -> dict:
+    """Verify exact variant evidence at its capture time for audited backfills.
+
+    This does not establish snapshot provenance: the backfill importer must
+    independently verify the archive URL, capture date and original retailer URL.
+    Live collection always uses the current time.
+    """
+    return _parse_quote(body, watch, observed_at=observed_at)
 
 
 def discover_variants(url: str) -> dict:
@@ -309,7 +378,7 @@ def discover_variants(url: str) -> dict:
     validated = validate_product_url(url)
     body, final_url = _read_page(validated['url'], validated['market'])
     nodes, indexed = _document_nodes(body)
-    products = [node for node in nodes if _has_type(node, 'Product')]
+    products = _retailer_products(nodes, validated)
     if len(products) > MAX_DISCOVERY_VARIANTS:
         raise CollectorError('variant_limit', 'Page exceeds the maximum of 256 Product nodes')
     variants, seen = [], set()
@@ -331,7 +400,8 @@ def discover_variants(url: str) -> dict:
     if not variants:
         raise CollectorError('no_verifiable_variants', 'Page has no exact public new-item variant offers with known stock')
     result = {'url': final_url, 'market': validated['market'],
-              'currency': validated['currency'], 'variants': variants}
+              'currency': validated['currency'], 'variants': variants,
+              'retailer_key': validated['retailer_key'], 'retailer_name': validated['retailer_name']}
     groups = [node for node in nodes if _has_type(node, 'ProductGroup')]
     if len(groups) == 1 and isinstance(groups[0].get('name'), str):
         result['label'] = groups[0]['name'][:200]

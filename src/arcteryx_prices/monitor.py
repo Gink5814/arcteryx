@@ -1,7 +1,7 @@
 """Single-user local watch scheduling and twice-verified, persistent site alerts.
 
 Fetch failures never synthesize prices, stock changes, or a successful check.
-All public prices remain scoped to one official URL and exact variant SKU.
+All public prices remain scoped to one retailer URL and exact variant SKU.
 """
 
 from __future__ import annotations
@@ -48,6 +48,18 @@ def initialize_monitor(db_path):
     connection = initialize(db_path)
     connection.execute('PRAGMA busy_timeout = 10000')
     connection.executescript(MONITOR_SCHEMA.read_text(encoding='utf-8'))
+    # Additive migration preserves existing official watch and price identities.
+    columns = {row['name'] for row in connection.execute('PRAGMA table_info(monitor_watches)')}
+    for name, declaration in (('retailer_key', "TEXT NOT NULL DEFAULT 'arcteryx-official'"),
+                              ('retailer_name', "TEXT NOT NULL DEFAULT 'Arc''teryx official'")):
+        if name not in columns:
+            try:
+                connection.execute(f'ALTER TABLE monitor_watches ADD COLUMN {name} {declaration}')
+            except sqlite3.OperationalError:
+                if name not in {row['name'] for row in connection.execute('PRAGMA table_info(monitor_watches)')}:
+                    raise
+    from .history import initialize_history
+    initialize_history(connection)
     return connection
 
 
@@ -108,7 +120,7 @@ def _public(connection, row, now=None):
     result['metrics'] = metrics(
         connection, product_key=row['product_key'], variant_key=row['variant_key'],
         market=row['market'], currency=row['currency'], as_of=canonical_time(instant),
-        retailer_key='arcteryx-official', offer_key=row['offer_key'],
+        retailer_key=row['retailer_key'], offer_key=row['offer_key'],
     )
     return result
 
@@ -127,10 +139,14 @@ def create_watch(connection, payload):
         raise ValueError('target rule requires target_price_minor')
     digest = hashlib.sha256((url['url'] + '\n' + sku).encode()).hexdigest()
     stamp = canonical_time(_now())
+    retailer_key = url.get('retailer_key', 'arcteryx-official')
+    retailer_name = url.get('retailer_name', "Arc'teryx official")
+    product_prefix = 'official' if retailer_key == 'arcteryx-official' else retailer_key
     values = {
         'url': url['url'], 'sku': sku, 'color': color, 'size': size, 'label': label,
         'market': url['market'], 'currency': url['currency'],
-        'product_key': f'official:{digest}', 'variant_key': f'variant:{digest}',
+        'retailer_key': retailer_key, 'retailer_name': retailer_name,
+        'product_key': f'{product_prefix}:{digest}', 'variant_key': f'variant:{digest}',
         'offer_key': f'offer:{digest}', 'created_at': stamp, 'updated_at': stamp,
     } | settings
     try:
@@ -140,7 +156,7 @@ def create_watch(connection, payload):
                 tuple(values.values()),
             )
     except sqlite3.IntegrityError as exc:
-        raise ValueError('this official URL and SKU are already watched') from exc
+        raise ValueError('this retailer URL and SKU are already watched') from exc
     return _public(connection, _row(connection, cursor.lastrowid))
 
 
@@ -247,16 +263,18 @@ class _NoCommitConnection:
 
 def _observation(watch, quote):
     return {
-        'product_key': watch['product_key'], 'name': f"Arc'teryx official variant {watch['sku']}",
+        'product_key': watch['product_key'],
+        'name': (f"Arc'teryx official variant {watch['sku']}" if watch['retailer_key'] == 'arcteryx-official'
+                 else f"Arc'teryx {watch['retailer_name']} variant {watch['sku']}"),
         'model_code': watch['sku'], 'season': 'unverified',
         'variant_key': watch['variant_key'], 'color': watch['color'], 'size': watch['size'],
-        'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official",
+        'retailer_key': watch['retailer_key'], 'retailer_name': watch['retailer_name'],
         'offer_key': watch['offer_key'], 'market': watch['market'], 'currency': watch['currency'],
         'observed_at': quote['observed_at'], 'captured_at': quote['captured_at'],
         'price_minor': quote['price_minor'], 'availability': quote['availability'],
         'product_condition': 'new', 'price_type': 'public', 'source_type': 'retailer_page',
         'source_url': quote['source_url'],
-        'notes': 'Official exact-variant quote; price excludes tax and shipping.',
+        'notes': ('Official' if watch['retailer_key'] == 'arcteryx-official' else 'Retailer') + ' exact-variant quote; price excludes tax and shipping.',
     }
 
 
@@ -298,7 +316,7 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
             meets_target = watch['target_price_minor'] is None or quote['price_minor'] is not None and quote['price_minor'] <= watch['target_price_minor']
             previous = metrics(connection, product_key=watch['product_key'], variant_key=watch['variant_key'],
                                market=watch['market'], currency=watch['currency'], as_of=quote['observed_at'],
-                               retailer_key='arcteryx-official', offer_key=watch['offer_key'])['observed_all_time_min']
+                               retailer_key=watch['retailer_key'], offer_key=watch['offer_key'])['observed_all_time_min']
             if watch['rule'] == 'target':
                 candidate = eligible and meets_target
                 event_threshold = watch['target_price_minor']

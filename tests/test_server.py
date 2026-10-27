@@ -125,6 +125,34 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(skipped['check_status'], 'paused')
         self.assertEqual(self.fetcher.call_count, 3)
 
+    def test_historical_reference_api_is_read_only_and_separate_from_watch_metrics(self):
+        from arcteryx_prices.history import import_evidence
+        from arcteryx_prices.monitor import initialize_monitor
+        record = {
+            'evidence_key': 'SYNTHETIC-HTTP-REPORT',
+            'source_url': 'https://slickdeals.net/f/123-synthetic-http-fixture',
+            'publisher': 'SYNTHETIC publisher', 'source_kind': 'deal_report',
+            'observed_at': '2025-09-01', 'date_precision': 'day',
+            'captured_at': '2026-01-01T00:00:00Z', 'price_minor': 12345,
+            'market': 'US', 'currency': 'USD', 'retailer_key': 'rei',
+            'retailer_name': 'REI Co-op', 'product_name': 'SYNTHETIC product',
+            'availability': 'unknown', 'product_condition': 'unknown', 'price_type': 'public',
+            'excerpt': 'Synthetic fixture, not a retail price.', 'body_sha256': 'a' * 64,
+        }
+        with initialize_monitor(self.database_path) as database:
+            import_evidence(database, {'schema_version': 1, 'evidence': [record]})
+        status, state, _ = self.request('GET', '/api/state')
+        self.assertEqual(status, 200)
+        self.assertEqual(state['historical_evidence'][0]['observed_at'], '2025-09-01')
+        self.assertFalse(state['historical_evidence'][0]['included_in_metrics'])
+        self.assertTrue(any(item['key'] == 'rei' for item in state['supported_retailers']))
+        status, evidence, _ = self.request('GET', '/api/history-evidence')
+        self.assertEqual(status, 200)
+        self.assertEqual(evidence['evidence'], state['historical_evidence'])
+        self.assertEqual(self.request('POST', '/api/history-evidence', {})[0], 404)
+        self.assertEqual(self.observation_count(), 0)
+        self.fetcher.assert_not_called()
+
     def test_health_and_static_assets_are_served_with_security_headers(self):
         status, health, headers = self.request('GET', '/api/health')
         self.assertEqual(status, 200)

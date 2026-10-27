@@ -1,6 +1,6 @@
 # 价格数据库与统计口径
 
-采用 SQLite + Python 标准库，不需要数据库服务或外部依赖。现已接入官方 US/CA 商品页采集和站内提醒，支持离线导入；Keepa、浏览器扩展及外部通知服务尚未接入。运行方式见 [监控说明](monitoring.md)。
+采用 SQLite + Python 标准库，不需要数据库服务或外部依赖。现已接入官方 US/CA、REI 美国站商品页采集和站内提醒，支持离线导入；Keepa、浏览器扩展及外部通知服务尚未接入。运行方式见 [监控说明](monitoring.md)。
 
 ## 数据模型
 
@@ -11,6 +11,7 @@
 | `retailers` | 零售商身份 |
 | `offers` | 商户内商品报价身份，关联变体、市场和币种；US/USD 与 CA/CAD 严格隔离 |
 | `price_observations` | 原始价格观测、库存、成色、价格资格、来源与时间 |
+| `historical_evidence` | 独立的历史报道/存档证据、原始时间精度、取得时间与内容哈希；仅核验成功后关联价格观测 |
 
 所有价格使用整数美分，不用浮点数。表结构见 [schema.sql](../db/schema.sql)。导入器不覆盖既有价格观测；相同来源记录重复导入视为幂等，内容冲突则整批回滚。SQLite 文件本身不是防篡改审计系统，直接 SQL 写入不受导入器的完整校验保护。
 
@@ -67,6 +68,26 @@ JSON 顶层必须只有 `observations` 数组。完整结构参考 [合成示例
 
 不得把 Keepa 的缺货标记、含运费报价、MSRP 或前一次价格伪装成默认合格报价。未来 Keepa 导入器还需处理变化事件的有效区间和授权数据覆盖；当前 CLI 没有声称支持其原始 JSON。
 
+## 有来源的历史参考与存档回填
+
+`import` 是供维护者使用的原始记录导入工具，验证格式和身份一致性，不自动证明来源内容真实。历史报道应使用专门的证据流程：
+
+```bash
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-import research/historical-price-evidence.json
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-list
+```
+
+证据文件使用 `schema_version: 1` 和 `evidence` 数组，存储来源、发布时间/观测日期、时间精度、取得时间、金额、市场、商家、条件、摘要与页面 SHA-256。未知 SKU 或库存保留未知。导入幂等且冲突整批回滚；不会修改实时关注或生成提醒，也不会因文件自报可信而加入价格统计。
+
+只有取得精确时间戳的原零售商 Wayback `id_` 存档后，才可针对现有关注执行：
+
+```bash
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-backfill \
+  --evidence-key VERIFIED_ARCHIVE_KEY --watch-id WATCH_ID
+```
+
+命令重新获取该存档，验证原 URL、快照时间、页面哈希和同一 SKU/颜色/尺码/币种的公开新货现货报价，成功后原子写入观测与核验关联。优惠报道不接受这项转换。当前未取得可通过核验的真实旧变体存档，存档流程用隔离的合成测试验证，不能据此声称已补齐真实历史。范围及来源详见 [第三方与历史说明](retailers-and-history.md)。
+
 ## 查询与验证
 
 以下占位符须换成真实导入记录的身份：
@@ -86,6 +107,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 ## 保存与后续接入
 
-`data/prices.sqlite3` 是当前实例真实工作库，已包含首次实际采集的报价，不纳入 Git。`db/schema.sql`、`db/monitor.sql` 和计算代码可重建空库；真实数据需要另行备份，不能把 Git 当作价格历史备份。
+`data/prices.sqlite3` 是当前实例真实工作库，不纳入 Git。`db/schema.sql`、`db/monitor.sql`、`db/history.sql` 和计算代码可重建空库；真实采集数据需要另行备份，不能把 Git 当作价格历史备份。历史参考文件纳入版本管理，可显式导入重建这部分资料。
 
 当前采集器把经过身份、库存和币种验证的事实转换成相同格式，监控表额外保留关注、检查结果与站内提醒。看板启动时会运行到期检查调度器；没有邮件发送服务。每个监控关注使用独立 URL+SKU 身份，尚不自动将不同商户或语言页面合并。

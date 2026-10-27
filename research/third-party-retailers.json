@@ -1,0 +1,249 @@
+{
+  "checked_at": "2026-10-27T02:15:40.253482Z",
+  "scope": "North America: US/USD and CA/CAD remain separate.",
+  "implemented_retailers": [
+    "REI Co-op (US/USD)"
+  ],
+  "live_checks": [
+    {
+      "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+      "retrieved_at": "2026-10-27T02:15:37.843268Z",
+      "response_sha256": "76d791b5aec0defee7f59b0d894d25ae56674938a6b02327ba829de20434f6ee",
+      "response_bytes": 1703722,
+      "retailer_key": "rei",
+      "retailer_name": "REI Co-op",
+      "market": "US",
+      "currency": "USD",
+      "status": "live_verified",
+      "label": "Beta Jacket - Men's",
+      "verified_variant_count": 42,
+      "sample_watch": {
+        "label": "Beta Jacket - Men's",
+        "url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "sku": "2286170010",
+        "color": "Black Sapphire",
+        "size": "M",
+        "interval_minutes": 60,
+        "rule": "new_low"
+      },
+      "independently_refetched_quote": {
+        "price_minor": 40000,
+        "availability": "in_stock",
+        "sku": "2286170010",
+        "color": "Black Sapphire",
+        "size": "M",
+        "market": "US",
+        "currency": "USD",
+        "observed_at": "2026-10-27T02:15:38.390625Z",
+        "captured_at": "2026-10-27T02:15:38.390625Z",
+        "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "evidence_sha256": "76d791b5aec0defee7f59b0d894d25ae56674938a6b02327ba829de20434f6ee"
+      },
+      "evidence_fields": [
+        "ProductGroup.brand.name",
+        "ProductGroup.hasVariant[].sku",
+        "ProductGroup.hasVariant[].color",
+        "ProductGroup.hasVariant[].size",
+        "ProductGroup.hasVariant[].offers[].itemCondition",
+        "ProductGroup.hasVariant[].offers[].priceCurrency",
+        "ProductGroup.hasVariant[].offers[].price",
+        "ProductGroup.hasVariant[].offers[].availability"
+      ],
+      "limitations": [
+        "Retailer SKU is not automatically mapped to a manufacturer SKU or another retailer.",
+        "Prices exclude checkout tax and shipping; membership/rewards offers are not included.",
+        "This is a current quote snapshot, not evidence of any earlier price."
+      ],
+      "sale_sample_watch": {
+        "label": "Beta Jacket - Men's",
+        "url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "sku": "2286170079",
+        "color": "Alpine Blue",
+        "size": "XXL",
+        "interval_minutes": 60,
+        "rule": "new_low"
+      },
+      "independently_refetched_sale_quote": {
+        "price_minor": 24983,
+        "availability": "in_stock",
+        "sku": "2286170079",
+        "color": "Alpine Blue",
+        "size": "XXL",
+        "market": "US",
+        "currency": "USD",
+        "observed_at": "2026-10-27T02:16:57.199541Z",
+        "captured_at": "2026-10-27T02:16:57.199541Z",
+        "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "evidence_sha256": "76d791b5aec0defee7f59b0d894d25ae56674938a6b02327ba829de20434f6ee"
+      }
+    },
+    {
+      "source_url": "https://www.rei.com/product/222632/arcteryx-atom-insulated-hoody-mens",
+      "retrieved_at": "2026-10-27T02:15:38.881804Z",
+      "response_sha256": "367e2724177617b8a131122c85ee52d9cbe27ed35b8b1f287f261acc9f11f0a9",
+      "response_bytes": 1569255,
+      "retailer_key": "rei",
+      "retailer_name": "REI Co-op",
+      "market": "US",
+      "currency": "USD",
+      "status": "no_current_verifiable_quote",
+      "error_status": "no_verifiable_variants",
+      "reason": "Page has no exact public new-item variant offers with known stock",
+      "notes": "Atom men page offers have expired priceValidUntil=2026-10-24. Do not backdate today's response or treat an expired advertised sale as a historical purchase price."
+    },
+    {
+      "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+      "retrieved_at": "2026-10-27T02:15:39.444309Z",
+      "response_sha256": "bb29fbb9d15c2b66f8df6cdf804627aa7d2e8a34acb840431b71dff362210e14",
+      "response_bytes": 1349562,
+      "retailer_key": "rei",
+      "retailer_name": "REI Co-op",
+      "market": "US",
+      "currency": "USD",
+      "status": "live_verified",
+      "label": "Atom Insulated Hoody - Women's",
+      "verified_variant_count": 33,
+      "sample_watch": {
+        "label": "Atom Insulated Hoody - Women's",
+        "url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "sku": "2433320095",
+        "color": "Alpine Rose",
+        "size": "M",
+        "interval_minutes": 60,
+        "rule": "new_low"
+      },
+      "independently_refetched_quote": {
+        "price_minor": 30000,
+        "availability": "in_stock",
+        "sku": "2433320095",
+        "color": "Alpine Rose",
+        "size": "M",
+        "market": "US",
+        "currency": "USD",
+        "observed_at": "2026-10-27T02:15:40.251655Z",
+        "captured_at": "2026-10-27T02:15:40.251655Z",
+        "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "evidence_sha256": "bb29fbb9d15c2b66f8df6cdf804627aa7d2e8a34acb840431b71dff362210e14"
+      },
+      "evidence_fields": [
+        "ProductGroup.brand.name",
+        "ProductGroup.hasVariant[].sku",
+        "ProductGroup.hasVariant[].color",
+        "ProductGroup.hasVariant[].size",
+        "ProductGroup.hasVariant[].offers[].itemCondition",
+        "ProductGroup.hasVariant[].offers[].priceCurrency",
+        "ProductGroup.hasVariant[].offers[].price",
+        "ProductGroup.hasVariant[].offers[].availability"
+      ],
+      "limitations": [
+        "Retailer SKU is not automatically mapped to a manufacturer SKU or another retailer.",
+        "Prices exclude checkout tax and shipping; membership/rewards offers are not included.",
+        "This is a current quote snapshot, not evidence of any earlier price."
+      ],
+      "sale_sample_watch": {
+        "label": "Atom Insulated Hoody - Women's",
+        "url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "sku": "2433320090",
+        "color": "Shincha",
+        "size": "XL",
+        "interval_minutes": 60,
+        "rule": "new_low"
+      },
+      "independently_refetched_sale_quote": {
+        "price_minor": 14983,
+        "availability": "in_stock",
+        "sku": "2433320090",
+        "color": "Shincha",
+        "size": "XL",
+        "market": "US",
+        "currency": "USD",
+        "observed_at": "2026-10-27T02:16:58.493356Z",
+        "captured_at": "2026-10-27T02:16:58.493356Z",
+        "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "evidence_sha256": "bb29fbb9d15c2b66f8df6cdf804627aa7d2e8a34acb840431b71dff362210e14"
+      }
+    }
+  ],
+  "canadian_research": {
+    "checked_at": "2026-10-27T02:10:48.767193Z",
+    "findings": [
+      {
+        "url": "https://www.altitude-sports.com/collections/arcteryx",
+        "final_url": "https://www.altitude-sports.com/c/all",
+        "status": 200,
+        "sha256": "2c388b8f5e5cac417717235729a69f53aae8076359eee2035c5a9601af54be03",
+        "bytes": 1421132
+      },
+      {
+        "url": "https://www.altitude-sports.com/search?query=arcteryx",
+        "final_url": "https://www.altitude-sports.com/search?query=arcteryx",
+        "status": 200,
+        "sha256": "fd60a583c151b96992e5845ec799286aa8e0a825b8b3c89537f0811bcaf5ba5a",
+        "bytes": 542354
+      },
+      {
+        "url": "https://www.altitude-sports.com/brands",
+        "final_url": "https://www.altitude-sports.com/brands",
+        "status": 200,
+        "sha256": "60276e489f8ddb45a6f5de3bb12260e24ee42729928a8356ec04a05d4cbbb72d",
+        "bytes": 467525
+      }
+    ],
+    "conclusion": "No verifiable current Arc'teryx variant offers from queried Altitude Sports pages. Do not infer stock or sale status from absence. MEC returned HTTP403; VPO, Sporting Life, The Last Hunt, Monod Sports, Atmosphere CONNECT403; none bypassed.",
+    "blocked_candidates": [
+      {
+        "url": "https://www.mec.ca/en/products/brands/arcteryx",
+        "result": "HTTP 403"
+      },
+      {
+        "url": "https://www.mec.ca/en/product/6028-062/beta-jacket-mens",
+        "result": "HTTP 403",
+        "note": "Guessed candidate path, not confirmed canonical."
+      },
+      {
+        "url": "https://www.mec.ca/en/explore/arcteryx",
+        "result": "HTTP 403"
+      },
+      {
+        "url": "https://vpo.ca/collections/arcteryx",
+        "result": "Proxy CONNECT 403"
+      },
+      {
+        "url": "https://www.sportinglife.ca/en-CA/brands/arcteryx/",
+        "result": "Proxy CONNECT 403"
+      },
+      {
+        "url": "https://www.thelasthunt.com/collections/arcteryx",
+        "result": "Proxy CONNECT 403"
+      },
+      {
+        "url": "https://www.monodsports.com/collections/arcteryx",
+        "result": "Proxy CONNECT 403"
+      },
+      {
+        "url": "https://www.atmosphere.ca/en/brands/arcteryx.html",
+        "result": "Proxy CONNECT 403"
+      }
+    ],
+    "candidate_path_note": "Blocked paths are research candidates, not verified canonical or active catalog URLs."
+  },
+  "other_checks": [
+    {
+      "url": "https://www.backcountry.com/",
+      "result": "HTTP 200; no Arc'teryx brand links found in the fetched homepage."
+    },
+    {
+      "url": "https://www.backcountry.com/arcteryx",
+      "result": "HTTP 404"
+    },
+    {
+      "url": "https://www.backcountry.com/b/arcteryx",
+      "result": "HTTP 404"
+    },
+    {
+      "url": "https://www.backcountry.com/arcteryx-beta-jacket-mens",
+      "result": "HTTP 404"
+    }
+  ],
+  "exclusions": "No parser or URL allowance is enabled for retailers without verified exact Arc'teryx variant data. An inaccessible or unrelated page is neither a price nor an out-of-stock observation."
+}

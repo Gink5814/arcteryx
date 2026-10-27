@@ -12,7 +12,7 @@ from urllib.request import Request
 
 from arcteryx_prices.collector import (
     CollectorError, MAX_RESPONSE_BYTES, _StrictRedirectHandler, _parse_quote,
-    collect_quote, discover_variants, validate_product_url,
+    collect_quote, discover_variants, parse_product_html, supported_retailers, validate_product_url,
 )
 
 
@@ -44,7 +44,8 @@ class CollectorTests(unittest.TestCase):
 
     def test_product_url_market_normalization_and_variant_query(self):
         self.assertEqual(validate_product_url(URL + '?color=Black&size=M#details'),
-                         {'url': URL + '?color=Black&size=M', 'market': 'US', 'currency': 'USD'})
+                         {'url': URL + '?color=Black&size=M', 'market': 'US', 'currency': 'USD',
+                          'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official"})
         self.assertEqual(validate_product_url('https://outlet.arcteryx.com/ca/fr/shop/mens/synthetic-shell')['currency'], 'CAD')
         self.assertEqual(validate_product_url(URL.replace('arcteryx.com', 'ARCTERYX.COM:443'))['url'], URL)
 
@@ -197,6 +198,7 @@ class CollectorTests(unittest.TestCase):
             result = discover_variants(URL)
             fetch.assert_called_once_with(URL, 'US')
         self.assertEqual(result, {'url': URL, 'market': 'US', 'currency': 'USD',
+                                 'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official",
                                  'label': 'Synthetic discovery group',
                                  'variants': [{'sku': WATCH['sku'], 'color': 'Black', 'size': 'M',
                                                'price_minor': 49995, 'availability': 'in_stock'}]})
@@ -246,6 +248,85 @@ class CollectorTests(unittest.TestCase):
             response.headers.get.side_effect = lambda key, default=None: 'identity' if key == 'Content-Encoding' else str(MAX_RESPONSE_BYTES + 1)
             self.assert_status('response_too_large', collect_quote, WATCH)
             response.read.assert_not_called()
+
+    def test_rei_url_is_usd_and_only_supported_brand_product_paths(self):
+        url = 'https://rei.com/product/C01234/arcteryx-synthetic-shell?sku=SYNTHETIC-M#details'
+        self.assertEqual(validate_product_url(url), {
+            'url': url.replace('rei.com', 'www.rei.com').split('#')[0],
+            'market': 'US', 'currency': 'USD', 'retailer_key': 'rei', 'retailer_name': 'REI Co-op',
+        })
+        self.assertEqual([r['key'] for r in supported_retailers()], ['arcteryx-official', 'rei'])
+        for bad in (
+            'https://rei.com/product/123/another-brand-shell',
+            'https://www.rei.com/used/p/arcteryx-shell/123',
+            'https://www.rei.com/product/123/arcteryx-shell/%2e%2e',
+            'https://rei.com.evil.example/product/123/arcteryx-shell',
+            'https://www.rei.com/b/arcteryx',
+            'https://www.rei.com/product/123',
+        ):
+            self.assert_status('invalid_url', validate_product_url, bad)
+
+    def test_rei_discovery_requires_branded_group_and_exact_variant_evidence(self):
+        url = 'https://www.rei.com/product/123/arcteryx-synthetic-shell'
+        group = {'@type': 'ProductGroup', 'name': 'Synthetic REI shell',
+                 'brand': {'@type': 'Brand', 'name': "Arc'teryx"}, 'hasVariant': [product()]}
+        with patch('arcteryx_prices.collector._read_page', return_value=(html(group), url)):
+            result = discover_variants(url)
+        self.assertEqual(result['retailer_key'], 'rei')
+        self.assertEqual(result['variants'], [{'sku': WATCH['sku'], 'color': 'Black', 'size': 'M',
+                                             'price_minor': 49995, 'availability': 'in_stock'}])
+        for change in ({'brand': {'name': 'Other brand'}}, {'brand': None}):
+            with patch('arcteryx_prices.collector._read_page', return_value=(html(group | change), url)):
+                self.assert_status('brand_mismatch', discover_variants, url)
+        # A recommendation outside the brand's hasVariant is not the selected product.
+        outside = product(sku='SYNTHETIC-RECOMMENDATION', size='XL')
+        with patch('arcteryx_prices.collector._read_page', return_value=(html([group, outside]), url)):
+            self.assertEqual(len(discover_variants(url)['variants']), 1)
+        missing = product(size=None)
+        with patch('arcteryx_prices.collector._read_page', return_value=(html(group | {'hasVariant': [missing]}), url)):
+            self.assert_status('no_verifiable_variants', discover_variants, url)
+
+    def test_retailer_identity_cannot_change_via_redirect_or_offer(self):
+        rei_url = 'https://www.rei.com/product/123/arcteryx-synthetic-shell'
+        handler = _StrictRedirectHandler('US')
+        self.assert_status('redirect_blocked', handler.redirect_request,
+                           Request(URL), None, 302, 'Found', {}, rei_url)
+        self.assert_status('redirect_blocked', handler.redirect_request,
+                           Request(rei_url), None, 302, 'Found', {}, URL)
+        node = product()
+        node['offers']['url'] = rei_url
+        self.assert_status('identity_mismatch', _parse_quote, html(node), WATCH)
+
+    def test_rei_crossed_out_list_price_is_not_the_current_sale_price(self):
+        watch = WATCH | {'url': 'https://www.rei.com/product/123/arcteryx-synthetic-shell'}
+        node = product()
+        node['offers']['priceSpecification'] = {
+            '@type': 'UnitPriceSpecification', 'priceType': 'https://schema.org/ListPrice',
+            'priceCurrency': 'USD', 'price': '600.00',
+        }
+        group = {'@type': 'ProductGroup', 'brand': {'name': "Arc'teryx"}, 'hasVariant': [node]}
+        self.assertEqual(_parse_quote(html(group), watch)['price_minor'], 49995)
+        original = dict(node['offers']['priceSpecification'])
+        for change in ({'priceType': 'SalePrice'}, {'priceCurrency': 'CAD'},
+                       {'price': '1.00'}, {'eligibleCustomerType': 'Members'}):
+            node['offers']['priceSpecification'] = original | change
+            self.assert_status('unsupported_offer', _parse_quote, html(group), watch)
+
+    def test_archive_validity_uses_verified_capture_time_not_current_date(self):
+        node = product()
+        node['offers']['validFrom'] = '2020-01-01'
+        node['offers']['priceValidUntil'] = '2020-01-31'
+        self.assertEqual(parse_product_html(html(node), WATCH, observed_at='2020-01-15T00:00:00Z'),
+                         {'price_minor': 49995, 'availability': 'in_stock'})
+        self.assert_status('stale_offer', _parse_quote, html(node), WATCH)
+        for capture in ('2020-01-15', 'not-a-date', datetime(2020, 1, 15), 123):
+            with self.assertRaises(CollectorError) as failure:
+                parse_product_html(html(node), WATCH, observed_at=capture)
+            self.assertEqual(failure.exception.status, 'invalid_timestamp')
+        for capture in ('2019-12-31T12:00:00Z', '2020-02-01T00:00:00Z'):
+            with self.assertRaises(CollectorError) as failure:
+                parse_product_html(html(node), WATCH, observed_at=capture)
+            self.assertEqual(failure.exception.status, 'stale_offer')
 
 
 if __name__ == '__main__':
