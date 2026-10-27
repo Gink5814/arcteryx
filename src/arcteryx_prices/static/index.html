@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#203b31">
+  <title>North · Arc'teryx 北美价格观察</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#watch-section">跳到关注清单</a>
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="North 首页"><span class="brand-mark" aria-hidden="true">N<span>↗</span></span><span>NORTH<span class="brand-subtitle">价格观察</span></span></a>
+    <nav aria-label="主导航"><a href="#watch-section">关注清单</a><a href="#alert-section">提醒记录</a></nav>
+    <div class="region-label"><span class="small-dot" aria-hidden="true"></span>美国 · 加拿大</div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy"><p class="eyebrow">ARC'TERYX / NORTH AMERICA</p><h1 id="page-title">好价格，<br>等它出现<span class="accent">。</span></h1><p class="hero-description">盯住你的颜色和尺码，<br class="mobile-break">让每一次价格变化都有迹可循。</p><button class="button button-primary" id="add-watch" type="button" disabled><span aria-hidden="true">＋</span> 添加关注</button></div>
+      <aside class="hero-note" aria-label="价格统计说明"><div class="contour" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div class="hero-note-content"><span class="note-index">01 — PRICE HISTORY</span><p>看见价格，<br>也看见它的来路。</p><small>历史最低 · 365 天最低 · 90 天均价<br>以实际观测为准，显示数据覆盖天数。</small></div></aside>
+    </section>
+
+    <div id="connection-message" class="connection-message" role="status" aria-live="polite" hidden></div>
+    <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+
+    <section class="summary" aria-label="监控概况">
+      <div class="summary-item"><span>正在监控</span><strong id="active-count">—</strong><small>个关注项</small></div>
+      <div class="summary-item"><span>有效当前报价</span><strong id="fresh-count">—</strong><small>价格与库存已确认</small></div>
+      <div class="summary-item"><span>提醒记录</span><strong id="alert-count">—</strong><small>保存在站内</small></div>
+      <div class="summary-sync"><span class="sync-dot" id="sync-dot" aria-hidden="true"></span><span id="sync-label">正在读取监控状态…</span></div>
+    </section>
+
+    <section id="watch-section" class="watch-section" aria-labelledby="watch-title">
+      <div class="section-heading"><div><p class="eyebrow">YOUR WATCHLIST</p><h2 id="watch-title">关注清单 <span id="watch-count" class="heading-count"></span></h2></div><div class="market-filter" role="group" aria-label="按市场筛选"><button class="filter active" type="button" data-market="all" aria-pressed="true">全部</button><button class="filter" type="button" data-market="US" aria-pressed="false">美国 · USD</button><button class="filter" type="button" data-market="CA" aria-pressed="false">加拿大 · CAD</button></div></div>
+      <div id="watch-list" class="watch-list" aria-live="polite" aria-busy="true"><div class="loading-state">正在读取关注清单…</div></div>
+      <p class="method-note">同一型号、颜色和尺码分别统计；USD 与 CAD 独立展示。90 天均价指每天最低可购价的平均，缺失日期不补零。报价不含税费和运费。</p>
+    </section>
+
+    <section id="alert-section" class="alert-section" aria-labelledby="alert-title"><div class="section-heading"><div><p class="eyebrow">PRICE SIGNALS</p><h2 id="alert-title">提醒记录</h2></div><span class="section-description">同一次促销，保留一次提醒</span></div><div id="alert-list" class="alert-list" aria-live="polite"><div class="loading-state">正在读取提醒记录…</div></div></section>
+  </main>
+
+  <footer class="site-footer"><span>NORTH / Arc'teryx 北美价格观察</span><span>每一个低价，都有记录。</span></footer>
+
+  <dialog id="watch-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-heading"><div><p class="eyebrow">START WATCHING</p><h2 id="dialog-title">关注一个具体尺码</h2></div><button id="close-dialog" class="icon-button" type="button" aria-label="关闭添加关注窗口">×</button></div>
+    <p class="dialog-description">粘贴 Arc'teryx 官网或 Outlet 的美国、加拿大商品链接，再选择你想关注的颜色和尺码。</p>
+    <form id="watch-form">
+      <div class="field"><label for="watch-url">商品链接</label><input id="watch-url" name="url" type="url" required autocomplete="url" placeholder="https://outlet.arcteryx.com/us/en/shop/…" aria-describedby="market-hint"><small id="market-hint">市场与币种将根据商品链接确定。</small></div>
+      <div class="discovery-actions"><button id="discover-variants" class="button button-secondary" type="button" disabled>读取颜色和尺码 <span aria-hidden="true">↗</span></button><span id="discovery-status" role="status" aria-live="polite"></span></div>
+      <div class="field" id="variant-field" hidden><label for="variant-select">选择具体颜色与尺码</label><select id="variant-select"><option value="">请选择一个变体</option></select><small>只列出页面中能够明确确认身份的变体。</small></div>
+      <div class="field"><label for="watch-label">关注名称 <span class="optional">可选</span></label><input id="watch-label" name="label" maxlength="120" placeholder="给这件装备起个容易辨认的名字"></div>
+      <details id="manual-fields" class="manual-fields"><summary>手动填写 SKU、颜色和尺码</summary><p>无法自动读取时，可根据商品页手动填写；后续检查仍需确认变体身份。</p>
+      <div class="field"><label for="watch-sku">变体 SKU</label><input id="watch-sku" name="sku" required maxlength="160" spellcheck="false" placeholder="与目标颜色、尺码对应的完整 SKU"></div>
+      <div class="form-row"><div class="field"><label for="watch-color">颜色</label><input id="watch-color" name="color" required maxlength="120" placeholder="与商品页中的颜色名称一致"></div><div class="field"><label for="watch-size">尺码</label><input id="watch-size" name="size" required maxlength="80" placeholder="例如 M 或 One Size"></div></div>
+      </details>
+      <div class="form-row"><div class="field"><label for="watch-rule">何时提醒我</label><select id="watch-rule" name="rule"><option value="target">达到目标价</option><option value="new_low">出现已观测新低</option><option value="restock">从缺货变为有货</option></select></div><div class="field"><label for="watch-interval">检查间隔</label><select id="watch-interval" name="interval_minutes"><option value="30">每 30 分钟</option><option value="60" selected>每 60 分钟</option><option value="120">每 2 小时</option><option value="1440">每天</option></select></div></div>
+      <div class="field" id="target-field"><label for="watch-target" id="target-label">目标价</label><div class="price-input"><span id="target-currency">USD / CAD</span><input id="watch-target" name="target" type="text" inputmode="decimal" required pattern="[0-9]+([.][0-9]{1,2})?" placeholder="0.00" aria-describedby="target-hint"></div><small id="target-hint">商品单价，不含税费和运费。价格达到或低于目标时提醒。</small></div>
+      <p id="rule-hint" class="rule-hint" hidden></p>
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+      <div class="form-footer"><p>提醒会保存在本站的「提醒记录」中。</p><button id="save-watch" class="button button-primary" type="submit">开始关注 <span aria-hidden="true">↗</span></button></div>
+    </form>
+  </dialog>
+</body>
+</html>

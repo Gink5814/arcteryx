@@ -1,0 +1,129 @@
+{
+  "validated_at": "2026-10-27T01:05:16.444979+00:00",
+  "kind": "real_first_party_quotes",
+  "scope": [
+    "US/USD",
+    "CA/CAD"
+  ],
+  "results": [
+    {
+      "watch": {
+        "url": "https://arcteryx.com/us/en/shop/mens/beta-jacket-0868",
+        "sku": "X000010868009",
+        "color": "Black",
+        "size": "S",
+        "label": "试点 · Beta Jacket · 美国",
+        "rule": "new_low"
+      },
+      "market": "US",
+      "currency": "USD",
+      "check_status": "ok",
+      "current_price_minor": 40000,
+      "availability": "in_stock",
+      "primary": {
+        "stage": "primary",
+        "status": "ok",
+        "error": null,
+        "quote": {
+          "availability": "in_stock",
+          "price_minor": 40000,
+          "evidence_sha256": "0b30c0523d65d3273b2faa4c95f25e8c9e0685d879b612b44722a4c5f17b7fdd",
+          "observed_at": "2026-10-27T01:05:15.969854Z",
+          "source_url": "https://arcteryx.com/us/en/shop/mens/beta-jacket-0868",
+          "captured_at": "2026-10-27T01:05:15.969854Z"
+        }
+      },
+      "alert_emitted": false
+    },
+    {
+      "watch": {
+        "url": "https://arcteryx.com/ca/en/shop/mens/beta-jacket-0868",
+        "sku": "X000010868009",
+        "color": "Black",
+        "size": "S",
+        "label": "试点 · Beta Jacket · 加拿大",
+        "rule": "new_low"
+      },
+      "market": "CA",
+      "currency": "CAD",
+      "check_status": "ok",
+      "current_price_minor": 52000,
+      "availability": "in_stock",
+      "primary": {
+        "stage": "primary",
+        "status": "ok",
+        "error": null,
+        "quote": {
+          "availability": "in_stock",
+          "price_minor": 52000,
+          "evidence_sha256": "435c5d81284670f561f4b8e0c2b2faec8f57fc50d8ac6b4563889aa8fda9773a",
+          "observed_at": "2026-10-27T01:05:16.077089Z",
+          "source_url": "https://arcteryx.com/ca/en/shop/mens/beta-jacket-0868",
+          "captured_at": "2026-10-27T01:05:16.077089Z"
+        }
+      },
+      "alert_emitted": false
+    },
+    {
+      "watch": {
+        "url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+        "sku": "X000010287010",
+        "color": "Black",
+        "size": "M",
+        "label": "试点 · Alpha SL Jacket · 美国 Outlet",
+        "rule": "new_low"
+      },
+      "market": "US",
+      "currency": "USD",
+      "check_status": "ok",
+      "current_price_minor": 35000,
+      "availability": "in_stock",
+      "primary": {
+        "stage": "primary",
+        "status": "ok",
+        "error": null,
+        "quote": {
+          "availability": "in_stock",
+          "price_minor": 35000,
+          "evidence_sha256": "226f30e8239b9f4a5a0cf304e467bee5d61533745ac71896e80280e9bc2bbd20",
+          "observed_at": "2026-10-27T01:05:16.325636Z",
+          "source_url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+          "captured_at": "2026-10-27T01:05:16.325636Z"
+        }
+      },
+      "alert_emitted": false
+    },
+    {
+      "watch": {
+        "url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+        "sku": "X000010287008",
+        "color": "Black",
+        "size": "XS",
+        "label": "试点 · Alpha SL Jacket XS · 美国 Outlet",
+        "rule": "restock"
+      },
+      "market": "US",
+      "currency": "USD",
+      "check_status": "ok",
+      "current_price_minor": null,
+      "availability": "out_of_stock",
+      "primary": {
+        "stage": "primary",
+        "status": "ok",
+        "error": null,
+        "quote": {
+          "availability": "out_of_stock",
+          "price_minor": 35000,
+          "evidence_sha256": "226f30e8239b9f4a5a0cf304e467bee5d61533745ac71896e80280e9bc2bbd20",
+          "observed_at": "2026-10-27T01:05:16.441152Z",
+          "source_url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+          "captured_at": "2026-10-27T01:05:16.441152Z"
+        }
+      },
+      "alert_emitted": false
+    }
+  ],
+  "real_observation_count": 4,
+  "historical_backfill": false,
+  "external_messages_sent": false
+}

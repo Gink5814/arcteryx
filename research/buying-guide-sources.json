@@ -1,0 +1,431 @@
+{
+  "research_date_local": "2026-10-26",
+  "research_timezone": "America/Denver",
+  "scope": [
+    "US/USD",
+    "CA/CAD"
+  ],
+  "article": "docs/north-america-buying-guide.md",
+  "method": "Read official policy text, one retailer brand page, product structured data and brand-hosted user reviews; distinguish published individual experiences from official rules and our own recommendations. No personal shopping experience claimed.",
+  "sources": [
+    {
+      "id": "terms-us",
+      "url": "https://arcteryx.com/us/en/help/terms-and-conditions",
+      "final_url": "https://arcteryx.com/us/en/help/terms-and-conditions",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.264631+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "d3ba2e70cb7e9cf45fb1b2ed840181c36f16f048c008f7821cec56b8777c479f",
+      "response_bytes": 461588,
+      "supports": [
+        "符合条件的非Outlet购买收货后30天退货",
+        "美国加拿大Outlet网购和门店Final Sale，损坏或描述不符例外",
+        "非官网购买退原渠道"
+      ],
+      "text_checks": [
+        {
+          "text": "thirty (30) calendar days",
+          "found": true
+        },
+        {
+          "text": "All sales are final",
+          "found": true
+        },
+        {
+          "text": "Items purchased anywhere except",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "terms-ca",
+      "url": "https://arcteryx.com/ca/en/help/terms-and-conditions",
+      "final_url": "https://arcteryx.com/ca/en/help/terms-and-conditions",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:15.039322+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "389209d5442f7fb04572822b6f4e1d2b73d5bcf6860d98bc6326c0f9bc3846ea",
+      "response_bytes": 456755,
+      "supports": [
+        "加拿大页面同样写明符合条件的购买30天退货、北美Outlet Final Sale"
+      ],
+      "text_checks": [
+        {
+          "text": "thirty (30) calendar days",
+          "found": true
+        },
+        {
+          "text": "All sales are final",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "faq-us",
+      "url": "https://arcteryx.com/us/en/help/faq",
+      "final_url": "https://arcteryx.com/us/en/help/faq",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.157217+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "d345cb393d650b9f99ac8aa03006af9a1d6530ac09735ce30ff9f115077e069e",
+      "response_bytes": 547345,
+      "supports": [
+        "不提供购买后价差调整",
+        "不直接换货",
+        "部分银行可能收取境外或跨境交易费",
+        "专业零售商渠道和RESALE二手平台"
+      ],
+      "text_checks": [
+        {
+          "text": "not eligible for price adjustments",
+          "found": true
+        },
+        {
+          "text": "We do not offer exchanges",
+          "found": true
+        },
+        {
+          "text": "Foreign Transaction Fee",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "faq-ca",
+      "url": "https://arcteryx.com/ca/en/help/faq",
+      "final_url": "https://arcteryx.com/ca/en/help/faq",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.272531+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "84161be59b981f8d36d53553bf0eaad5b53dd1a7e44c2cc4b5ba440422c63aa9",
+      "response_bytes": 515534,
+      "supports": [
+        "加拿大FAQ不提供价差调整、不能取消或修改订单"
+      ],
+      "text_checks": [
+        {
+          "text": "not eligible for price adjustments",
+          "found": true
+        },
+        {
+          "text": "We cannot cancel or alter your order",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "outlet-us",
+      "url": "https://outlet.arcteryx.com/us/en/help/faq",
+      "final_url": "https://outlet.arcteryx.com/us/en/help/faq",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.166104+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "7ac69bdc44ce97c7a32a1ed51910e1020f75d795990806bd3fa035ee18c6c80d",
+      "response_bytes": 344177,
+      "supports": [
+        "Outlet主要销售过季商品",
+        "版型与衣长可能随季节设计和材料变化"
+      ],
+      "text_checks": [
+        {
+          "text": "last season's products",
+          "found": true
+        },
+        {
+          "text": "fit and length may vary from season to season",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "shipping-us",
+      "url": "https://arcteryx.com/us/en/help/shipping",
+      "final_url": "https://arcteryx.com/us/en/help/shipping",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.218958+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "930a9e3e9a141ba8b5ef5cb3a97fef6627bca93bfb60e326d15e9c479774b31b",
+      "response_bytes": 434666,
+      "supports": [
+        "官网不接受转运地址",
+        "税按收货国家地区计算"
+      ],
+      "text_checks": [
+        {
+          "text": "does not allow shipping to addresses offering freight forwarding services",
+          "found": true
+        },
+        {
+          "text": "All applicable taxes will be applied",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "shipping-ca",
+      "url": "https://arcteryx.com/ca/en/help/shipping",
+      "final_url": "https://arcteryx.com/ca/en/help/shipping",
+      "source_kind": "official_policy",
+      "retrieved_at_utc": "2026-10-27T01:03:14.190141+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "ba89a3280a56571fc938175821e58fab0610a8d1be6deece628afd76bc4ab842",
+      "response_bytes": 430503,
+      "supports": [
+        "加拿大配送页同样明确转运限制和按收货地计税"
+      ],
+      "text_checks": [
+        {
+          "text": "does not allow shipping to addresses offering freight forwarding services",
+          "found": true
+        },
+        {
+          "text": "All applicable taxes will be applied",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "sizing",
+      "url": "https://arcteryx.com/us/en/help/sizing",
+      "final_url": "https://arcteryx.com/us/en/help/sizing",
+      "source_kind": "official_product_information",
+      "retrieved_at_utc": "2026-10-27T01:03:14.327597+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "6667933878481813dbfaf490285e2bd590615ba4bcc836d4f16b76ca636d5639",
+      "response_bytes": 436185,
+      "supports": [
+        "总体尺码表不能完整代表每一款的独特版型"
+      ],
+      "text_checks": [
+        {
+          "text": "does not fully reflect each item's unique specifications",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "counterfeit",
+      "url": "https://arcteryx.com/us/en/help/counterfeit",
+      "final_url": "https://arcteryx.com/us/en/help/counterfeit",
+      "source_kind": "official_consumer_advice",
+      "retrieved_at_utc": "2026-10-27T01:03:14.306000+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "7e1ae1db5bf8e9b16f18a7949bda59caf5e8c672956a69c2a30eaadde23ae94e",
+      "response_bytes": 429764,
+      "supports": [
+        "存在仿冒商品与网站",
+        "可向品牌核实授权渠道"
+      ],
+      "text_checks": [
+        {
+          "text": "fraudulent websites",
+          "found": true
+        },
+        {
+          "text": "authorized dealer",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "rei-brand",
+      "url": "https://www.rei.com/b/arcteryx",
+      "final_url": "https://www.rei.com/b/arcteryx",
+      "source_kind": "retailer_brand_page",
+      "retrieved_at_utc": "2026-10-27T01:03:15.084301+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "3179bcbda9fb621032611d9103dc6002c2ff4ceeda723e29dce6d35eefd07963",
+      "response_bytes": 658539,
+      "supports": [
+        "实际读取到REI品牌页；未据此声称任何SKU在库或退货期限"
+      ],
+      "text_checks": [
+        {
+          "text": "Shop all Arc'teryx products",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "beta-us",
+      "url": "https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062",
+      "final_url": "https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062",
+      "source_kind": "official_product_page",
+      "retrieved_at_utc": "2026-10-27T01:03:14.417791+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "8555e5fe13597de4f6ba7d5c9946f2aaad0d3d5bff5133e3e1eb6daf4d621558",
+      "response_bytes": 831194,
+      "supports": [
+        "US当地币种和单次标价",
+        "该页用户评价合并新旧面料款",
+        "官方问答说明硬壳本身不提供保暖填充"
+      ],
+      "text_checks": [
+        {
+          "text": "Reviews combine GORE-TEX ePE and prior fabric models.",
+          "found": true
+        }
+      ],
+      "point_in_time_example": {
+        "sku": "X000011062003",
+        "color": "Black",
+        "size": "M",
+        "price": 650,
+        "priceCurrency": "USD",
+        "is_historical_minimum": false
+      },
+      "user_review_examples": [
+        {
+          "id": "185624915",
+          "title": "Perfect shell",
+          "published_at": "2026-10-19T17:30:10.000+00:00",
+          "url": "https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062#185624915",
+          "source_kind": "brand_hosted_user_review",
+          "purchase_independently_verified": false,
+          "quote": "Please try them on first.",
+          "use_limit": "Individual experience; no inference about typical fit, defect rate or delivery reliability. Page combines product generations."
+        },
+        {
+          "id": "185067024",
+          "title": "Review",
+          "published_at": "2026-10-14T10:17:29.000+00:00",
+          "url": "https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062#185067024",
+          "source_kind": "brand_hosted_user_review",
+          "purchase_independently_verified": false,
+          "quote": "Unfortunately, it arrived on the day that I was in the air due to shipping delays",
+          "use_limit": "Individual experience; no inference about typical fit, defect rate or delivery reliability. Page combines product generations."
+        }
+      ]
+    },
+    {
+      "id": "beta-ca",
+      "url": "https://arcteryx.com/ca/en/shop/mens/beta-ar-jacket-1062",
+      "final_url": "https://arcteryx.com/ca/en/shop/mens/beta-ar-jacket-1062",
+      "source_kind": "official_product_page",
+      "retrieved_at_utc": "2026-10-27T01:03:14.387956+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "95cd50dd3fa6902812665ecc030a4a17a352a7f18b70212eb6fd1ad70f7b4f33",
+      "response_bytes": 827031,
+      "supports": [
+        "CA当地币种和同一SKU单次标价"
+      ],
+      "text_checks": [
+        {
+          "text": "Reviews combine GORE-TEX ePE and prior fabric models.",
+          "found": true
+        }
+      ],
+      "point_in_time_example": {
+        "sku": "X000011062003",
+        "color": "Black",
+        "size": "M",
+        "price": 840,
+        "priceCurrency": "CAD",
+        "is_historical_minimum": false
+      }
+    },
+    {
+      "id": "monitor-code",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/src/inventory.ts",
+      "final_url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/src/inventory.ts",
+      "source_kind": "maintainer_source_code",
+      "retrieved_at_utc": "2026-10-27T01:03:14.580015+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "b219f4da518f4e84752e45e1b289dbffcba3e3e12f36a67de9836bd9627d4746",
+      "response_bytes": 2255,
+      "supports": [
+        "覆盖保存最新快照，非完整历史数据库"
+      ],
+      "text_checks": [
+        {
+          "text": "await kv.put(KV_KEY, JSON.stringify(state))",
+          "found": true
+        }
+      ]
+    },
+    {
+      "id": "monitor-readme",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/README.md",
+      "final_url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/README.md",
+      "source_kind": "maintainer_documentation",
+      "retrieved_at_utc": "2026-10-27T01:03:14.514799+00:00",
+      "accessed_date_local": "2026-10-26",
+      "http_status": 200,
+      "status": "verified_source_read",
+      "sha256": "633361679f44a7ce349110f128cf49395d3802e4ed9c173192e14d8560ebf0b7",
+      "response_bytes": 3157,
+      "supports": [
+        "新品、降价、尺码过滤及邮件提醒功能"
+      ],
+      "text_checks": [
+        {
+          "text": "price drops",
+          "found": true
+        },
+        {
+          "text": "size",
+          "found": true
+        }
+      ]
+    }
+  ],
+  "inaccessible_community_sources": [
+    {
+      "id": "reddit",
+      "url": "https://www.reddit.com/r/arcteryx/search/?q=outlet%20return&restrict_sr=1",
+      "status": "not_read_proxy_connect_403",
+      "attempt_date_local": "2026-10-26",
+      "used_as_evidence": false,
+      "note": "Draft allowlist changes do not establish runtime access. No forum consensus or discount calendar inferred."
+    },
+    {
+      "id": "redflagdeals",
+      "url": "https://forums.redflagdeals.com/tags/arcteryx/",
+      "status": "not_read_proxy_connect_403",
+      "attempt_date_local": "2026-10-26",
+      "used_as_evidence": false,
+      "note": "Draft allowlist changes do not establish runtime access. No forum consensus or discount calendar inferred."
+    },
+    {
+      "id": "slickdeals",
+      "url": "https://slickdeals.net/newsearch.php?q=arcteryx",
+      "status": "not_read_proxy_connect_403",
+      "attempt_date_local": "2026-10-26",
+      "used_as_evidence": false,
+      "note": "Draft allowlist changes do not establish runtime access. No forum consensus or discount calendar inferred."
+    }
+  ],
+  "limitations": [
+    "No independently verified forum purchasing anecdotes or recurring promotion calendar.",
+    "Brand-hosted reviews are individual claims, not verified-purchase research or North American consensus.",
+    "Displayed prices are a single-time example, not historical lows or cross-border landed-cost quotes.",
+    "Some returns URLs responded HTTP 200 with only a My Account app shell; return claims instead use the readable Sales Terms.",
+    "No specific cross-border duty rates, exemptions or retailer-specific return periods asserted."
+  ]
+}

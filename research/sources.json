@@ -1,0 +1,185 @@
+{
+  "research_date_local": "2026-10-26",
+  "research_timezone": "America/Denver",
+  "scope": [
+    "US/USD",
+    "CA/CAD"
+  ],
+  "price_observations_acquired": 0,
+  "evidence": [
+    {
+      "id": "keepa-readme",
+      "repository": "keepacom/api_backend",
+      "commit": "683bfa839b84d172a156085bda0b29ce8c3eee45",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/keepacom/api_backend/683bfa839b84d172a156085bda0b29ce8c3eee45/README.md",
+      "retrieved_at": "2026-10-27T00:39:58.658839+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "8c7841030a08046c45e7176cf660d5987d2998a5907acb17c23b03de0cc0c390",
+      "bytes": 3303
+    },
+    {
+      "id": "keepa-stats",
+      "repository": "keepacom/api_backend",
+      "commit": "683bfa839b84d172a156085bda0b29ce8c3eee45",
+      "path": "src/main/java/com/keepa/api/backend/structs/Stats.java",
+      "url": "https://raw.githubusercontent.com/keepacom/api_backend/683bfa839b84d172a156085bda0b29ce8c3eee45/src/main/java/com/keepa/api/backend/structs/Stats.java",
+      "retrieved_at": "2026-10-27T00:39:58.659645+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "3ba65dc643bfb0e38f8cb1cb07bb676d7142455a690c7955e8c489f33d5bc297",
+      "bytes": 15598
+    },
+    {
+      "id": "keepa-product",
+      "repository": "keepacom/api_backend",
+      "commit": "683bfa839b84d172a156085bda0b29ce8c3eee45",
+      "path": "src/main/java/com/keepa/api/backend/structs/Product.java",
+      "url": "https://raw.githubusercontent.com/keepacom/api_backend/683bfa839b84d172a156085bda0b29ce8c3eee45/src/main/java/com/keepa/api/backend/structs/Product.java",
+      "retrieved_at": "2026-10-27T00:39:58.660062+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "768adc78929e542bc169ce042e1045c0c1ff742db89ac07e7ca8397caca9dc2a",
+      "bytes": 49823
+    },
+    {
+      "id": "keepa-locales",
+      "repository": "keepacom/api_backend",
+      "commit": "683bfa839b84d172a156085bda0b29ce8c3eee45",
+      "path": "src/main/java/com/keepa/api/backend/structs/AmazonLocale.java",
+      "url": "https://raw.githubusercontent.com/keepacom/api_backend/683bfa839b84d172a156085bda0b29ce8c3eee45/src/main/java/com/keepa/api/backend/structs/AmazonLocale.java",
+      "retrieved_at": "2026-10-27T00:43:23.253668+00:00",
+      "status": "verified_source_read",
+      "prior_attempt": {
+        "path": "src/main/java/com/keepa/api/backend/helper/AmazonLocale.java",
+        "url": "https://raw.githubusercontent.com/keepacom/api_backend/683bfa839b84d172a156085bda0b29ce8c3eee45/src/main/java/com/keepa/api/backend/helper/AmazonLocale.java",
+        "status": "unverified_fetch_failed",
+        "error": "HTTP Error 404: Not Found"
+      },
+      "http_status": 200,
+      "sha256": "66bc048eb1105144df1c96baa1e188fb7e81818867dd53760fc2265caf94cba0",
+      "bytes": 171
+    },
+    {
+      "id": "changedetection-readme",
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/README.md",
+      "retrieved_at": "2026-10-27T00:39:58.662374+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "d29cb6f8183b4c2628caabc3927999745f6dce321eff5615028a935f1c5d19a4",
+      "bytes": 22274
+    },
+    {
+      "id": "us-worker-readme",
+      "repository": "lethalgem/arcteryx-outlet-tracker",
+      "commit": "1b8a4708223e1710c2dadd917ac7fc4413fba5a1",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/README.md",
+      "retrieved_at": "2026-10-27T00:39:58.885328+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "633361679f44a7ce349110f128cf49395d3802e4ed9c173192e14d8560ebf0b7",
+      "bytes": 3157
+    },
+    {
+      "id": "us-worker-inventory",
+      "repository": "lethalgem/arcteryx-outlet-tracker",
+      "commit": "1b8a4708223e1710c2dadd917ac7fc4413fba5a1",
+      "path": "src/inventory.ts",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/src/inventory.ts",
+      "retrieved_at": "2026-10-27T00:39:58.916121+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "b219f4da518f4e84752e45e1b289dbffcba3e3e12f36a67de9836bd9627d4746",
+      "bytes": 2255
+    },
+    {
+      "id": "us-worker-scraper",
+      "repository": "lethalgem/arcteryx-outlet-tracker",
+      "commit": "1b8a4708223e1710c2dadd917ac7fc4413fba5a1",
+      "path": "src/scraper.ts",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/src/scraper.ts",
+      "retrieved_at": "2026-10-27T00:39:58.918190+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "1b9b2ec658d86668dfb5bef4567c81de9ac4215dd8df31154805dd341cac42d2",
+      "bytes": 8566
+    },
+    {
+      "id": "us-worker-schedule",
+      "repository": "lethalgem/arcteryx-outlet-tracker",
+      "commit": "1b8a4708223e1710c2dadd917ac7fc4413fba5a1",
+      "path": "wrangler.toml",
+      "url": "https://raw.githubusercontent.com/lethalgem/arcteryx-outlet-tracker/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/wrangler.toml",
+      "retrieved_at": "2026-10-27T00:39:58.941734+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "a4bb83768f5e3187aa9f589a74772c6b5bcb47fe7592ed61ffecd37136d8a3cb",
+      "bytes": 510
+    },
+    {
+      "id": "ca-monitor-readme",
+      "repository": "TongTong0828/arcteryx-monitor",
+      "commit": "3ef453ad25b2c3dcda0f124658d0ffa8bbbda53a",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/TongTong0828/arcteryx-monitor/3ef453ad25b2c3dcda0f124658d0ffa8bbbda53a/README.md",
+      "retrieved_at": "2026-10-27T00:39:59.002954+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "00f84666baa3fc1a15e545b8fd91fd5908fb3f8e85971eed139befa4ba903dcc",
+      "bytes": 4941
+    },
+    {
+      "id": "ca-monitor-code",
+      "repository": "TongTong0828/arcteryx-monitor",
+      "commit": "3ef453ad25b2c3dcda0f124658d0ffa8bbbda53a",
+      "path": "monitor.py",
+      "url": "https://raw.githubusercontent.com/TongTong0828/arcteryx-monitor/3ef453ad25b2c3dcda0f124658d0ffa8bbbda53a/monitor.py",
+      "retrieved_at": "2026-10-27T00:39:59.076868+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "0c122f273352f706d1fba4488011132aebb96be8ff4743e08502913835f2153a",
+      "bytes": 11351
+    },
+    {
+      "id": "stock-monitor-readme",
+      "repository": "kzhao5/arcteryx-stock-monitor",
+      "commit": "a2a82309cc54a241367e8afd61cbdfb76946e2c7",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/kzhao5/arcteryx-stock-monitor/a2a82309cc54a241367e8afd61cbdfb76946e2c7/README.md",
+      "retrieved_at": "2026-10-27T00:39:59.081332+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "a0e642e09196a4c0e846712c3d473ddfb8e7a77835cef1bf3ab7ed6b22aa1cc9",
+      "bytes": 9381
+    },
+    {
+      "id": "deals-platform-schema",
+      "repository": "wantai-dev/001-arcteryx-deals-platform",
+      "commit": "b9d5cbbac1503dd4fef4722a40e8fa8f02f60c17",
+      "path": "supabase_schema.sql",
+      "url": "https://raw.githubusercontent.com/wantai-dev/001-arcteryx-deals-platform/b9d5cbbac1503dd4fef4722a40e8fa8f02f60c17/supabase_schema.sql",
+      "retrieved_at": "2026-10-27T00:39:59.145138+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "bb2828a85f62c527bfe0a4c5d397215d5a189c413ee5ace8ca6ec6b9c85512d1",
+      "bytes": 3393
+    },
+    {
+      "id": "deals-platform-alerts",
+      "repository": "wantai-dev/001-arcteryx-deals-platform",
+      "commit": "b9d5cbbac1503dd4fef4722a40e8fa8f02f60c17",
+      "path": "check_price_alerts.py",
+      "url": "https://raw.githubusercontent.com/wantai-dev/001-arcteryx-deals-platform/b9d5cbbac1503dd4fef4722a40e8fa8f02f60c17/check_price_alerts.py",
+      "retrieved_at": "2026-10-27T00:39:59.147071+00:00",
+      "status": "verified_source_read",
+      "http_status": 200,
+      "sha256": "c86d05a85e32082ea91fdbb7a5dc14c60cc33aca2f249e7c3f9fe40ad591da72",
+      "bytes": 10320
+    }
+  ]
+}

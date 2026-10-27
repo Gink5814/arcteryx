@@ -1,0 +1,260 @@
+{
+  "research_date_local": "2026-10-26",
+  "research_timezone": "America/Denver",
+  "tools": [
+    {
+      "id": "keepa",
+      "name": "Keepa",
+      "category": "amazon_history_api",
+      "homepage": "https://keepa.com/",
+      "status": "official_api_source_verified",
+      "markets_documented": [
+        "US",
+        "CA"
+      ],
+      "source_ids": [
+        "keepa-readme",
+        "keepa-stats",
+        "keepa-product",
+        "keepa-locales"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "Amazon-specific; exact Arc'teryx ASIN history, entitlement, coverage, pricing and current browser extension not verified. avg90 is time-weighted."
+    },
+    {
+      "id": "changedetection",
+      "name": "changedetection.io",
+      "category": "self_hosted_page_monitor",
+      "homepage": "https://github.com/dgtlmoon/changedetection.io",
+      "status": "maintainer_readme_verified",
+      "source_ids": [
+        "changedetection-readme"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "Price/restock monitoring documented; Arc'teryx page extraction and pre-monitoring historical backfill not verified."
+    },
+    {
+      "id": "us-worker",
+      "name": "arcteryx-outlet-tracker",
+      "category": "arcteryx_monitor",
+      "homepage": "https://github.com/lethalgem/arcteryx-outlet-tracker",
+      "status": "readme_and_implementation_verified",
+      "markets_documented": [
+        "US"
+      ],
+      "source_ids": [
+        "us-worker-readme",
+        "us-worker-inventory",
+        "us-worker-scraper",
+        "us-worker-schedule"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "Latest KV snapshot is overwritten; no verified longitudinal history. Source cron is daily despite README half-hour statement."
+    },
+    {
+      "id": "ca-monitor",
+      "name": "arcteryx-monitor",
+      "category": "arcteryx_monitor",
+      "homepage": "https://github.com/TongTong0828/arcteryx-monitor",
+      "status": "readme_and_implementation_verified",
+      "markets_documented": [
+        "CA"
+      ],
+      "source_ids": [
+        "ca-monitor-readme",
+        "ca-monitor-code"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "baseline.json overwritten; README historical-record claim not supported by inspected code."
+    },
+    {
+      "id": "stock-monitor",
+      "name": "arcteryx-stock-monitor",
+      "category": "single_variant_restock_monitor",
+      "homepage": "https://github.com/kzhao5/arcteryx-stock-monitor",
+      "status": "readme_verified",
+      "source_ids": [
+        "stock-monitor-readme"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "Single variant restock alerts; not a verified price-history source."
+    },
+    {
+      "id": "deals-platform",
+      "name": "001-arcteryx-deals-platform",
+      "category": "arcteryx_price_platform",
+      "homepage": "https://github.com/wantai-dev/001-arcteryx-deals-platform",
+      "status": "schema_and_alert_implementation_verified",
+      "source_ids": [
+        "deals-platform-schema",
+        "deals-platform-alerts"
+      ],
+      "historical_prices_acquired": false,
+      "limitation": "Has a price_history schema; actual coverage, identity matching and data reuse rights not established. No live database queried."
+    },
+    {
+      "id": "distill",
+      "name": "Distill",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://distill.io/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "visualping",
+      "name": "Visualping",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://visualping.io/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "camelcamelcamel",
+      "name": "CamelCamelCamel",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://camelcamelcamel.com/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "karma",
+      "name": "Karma",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://www.karmanow.com/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "honey",
+      "name": "PayPal Honey",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://www.joinhoney.com/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "shopsavvy",
+      "name": "ShopSavvy",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://shopsavvy.com/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    },
+    {
+      "id": "price-com",
+      "name": "Price.com",
+      "category": "commercial_tool_candidate",
+      "homepage": "https://price.com/",
+      "status": "unverified_proxy_connect_403",
+      "source_ids": [],
+      "historical_prices_acquired": false,
+      "limitation": "No page body retrieved; store coverage, extension identity/version, retention/export/API and metrics remain unverified."
+    }
+  ],
+  "retailer_candidates": [
+    {
+      "id": "arcteryx-main",
+      "url": "https://arcteryx.com/us/en/",
+      "proposed_markets": [
+        "US",
+        "CA"
+      ],
+      "status": "unverified_proxy_connect_403"
+    },
+    {
+      "id": "arcteryx-outlet",
+      "url": "https://outlet.arcteryx.com/us/en/",
+      "proposed_markets": [
+        "US",
+        "CA"
+      ],
+      "status": "unverified_proxy_connect_403"
+    },
+    {
+      "id": "rei",
+      "url": "https://www.rei.com/b/arcteryx",
+      "proposed_markets": [
+        "US"
+      ],
+      "status": "unverified_proxy_connect_403"
+    },
+    {
+      "id": "backcountry",
+      "url": "https://www.backcountry.com/",
+      "proposed_markets": [
+        "US"
+      ],
+      "status": "candidate_not_requested"
+    },
+    {
+      "id": "altitude-sports",
+      "url": "https://www.altitude-sports.com/",
+      "proposed_markets": [
+        "CA"
+      ],
+      "status": "candidate_not_requested"
+    },
+    {
+      "id": "mec",
+      "url": "https://www.mec.ca/",
+      "proposed_markets": [
+        "CA"
+      ],
+      "status": "candidate_not_requested"
+    },
+    {
+      "id": "regear",
+      "url": "https://regear.arcteryx.com/",
+      "proposed_markets": [
+        "US",
+        "CA"
+      ],
+      "status": "candidate_not_requested",
+      "default_metrics_eligible": false,
+      "reason": "Used goods are a separate price scope."
+    }
+  ],
+  "browser_store": {
+    "url": "https://chromewebstore.google.com/search/arcteryx%20price%20alert",
+    "status": "unverified_proxy_connect_403"
+  },
+  "network_draft": {
+    "status": "saved_not_confirmed_applied_or_published",
+    "custom_domains": [
+      "arcteryx.com",
+      "outlet.arcteryx.com",
+      "regear.arcteryx.com",
+      "rei.com",
+      "backcountry.com",
+      "altitude-sports.com",
+      "mec.ca",
+      "distill.io",
+      "visualping.io",
+      "keepa.com",
+      "camelcamelcamel.com",
+      "karmanow.com",
+      "joinhoney.com",
+      "shopsavvy.com",
+      "price.com",
+      "chromewebstore.google.com"
+    ]
+  },
+  "pricing_data_status": {
+    "real_observations": 0,
+    "prices_backfilled": false,
+    "collectors_deployed": false,
+    "notifications_sent": false
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "observations": [
+    {
+      "product_key": "SYNTHETIC-shell-2026",
+      "name": "SYNTHETIC EXAMPLE ONLY - NOT A REAL PRODUCT OR PRICE",
+      "model_code": "SYNTHETIC-001",
+      "season": "SYNTHETIC-2026",
+      "variant_key": "synthetic-black-m",
+      "color": "Synthetic Black",
+      "size": "M",
+      "retailer_key": "synthetic-example-store",
+      "retailer_name": "SYNTHETIC EXAMPLE STORE",
+      "offer_key": "synthetic-example-offer",
+      "market": "US",
+      "currency": "USD",
+      "observed_at": "2026-10-26T12:00:00Z",
+      "captured_at": "2026-10-26T12:00:00Z",
+      "price_minor": 12345,
+      "availability": "in_stock",
+      "product_condition": "new",
+      "price_type": "public",
+      "source_type": "manual",
+      "source_url": "https://example.com/synthetic-price-fixture",
+      "notes": "SYNTHETIC fixture for a disposable test database only. Never import into the real price database."
+    }
+  ]
+}
