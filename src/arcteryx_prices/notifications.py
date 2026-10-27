@@ -128,7 +128,9 @@ def _message(event, config):
                 'Price and stock may have changed; confirm them before buying. '
                 'Price excludes tax and shipping.\n')
     else:
-        subject = f"Arc'teryx monitoring needs attention: {label}"
+        blocked = event['last_status'] == 'site_blocked'
+        subject = (f"Arc'teryx 被网站拦截 / website access blocked: {label}" if blocked
+                   else f"Arc'teryx monitoring needs attention: {label}")
         # Error text may contain arbitrary remote content. Send the stable status,
         # not an untrusted exception or server response that could expose secrets.
         status = re.sub(r'[^a-zA-Z0-9_ -]', '', event['last_status'])[:80]
@@ -139,6 +141,11 @@ def _message(event, config):
                 f"{event['url']}\n\nPrice and stock could not be verified. "
                 'Check the monitor log and retailer page. This notice is sent once '
                 'until collection succeeds and a new failure episode begins.\n')
+        if blocked:
+            body += ('\n被网站拦截：网站拒绝访问或返回了验证页面，当前无法核验价格和库存。\n'
+                     'The website denied access or returned a verification page. '
+                     'Open the product link in your browser to check access. '
+                     'The monitor will use the next scheduled attempt shown above.\n')
     message = EmailMessage()
     message['From'] = config.user
     message['To'] = config.recipient
@@ -211,9 +218,10 @@ def deliver_notifications(connection, config, *, dry_run=False, now=None):
     stamp = canonical_time(instant)
     if not dry_run and not re.fullmatch('[A-Za-z]{16}', config.password):
         raise ValueError('A Google app password is required for Gmail delivery')
-    if not dry_run:
-        connection.executescript(SCHEMA.read_text(encoding='utf-8'))
     has_ledger = connection.execute("SELECT 1 FROM sqlite_master WHERE name='notification_deliveries'").fetchone()
+    if not dry_run and not has_ledger:
+        connection.executescript(SCHEMA.read_text(encoding='utf-8'))
+        has_ledger = True
     deliveries = {row['event_key']: dict(row) for row in connection.execute(
         'SELECT * FROM notification_deliveries WHERE recipient=?', (config.recipient,))} if has_ledger else {}
     summary = {'sent': 0, 'failed': 0, 'pending': 0, 'expired': 0, 'skipped': 0, 'would_send': 0, 'errors': []}
@@ -229,14 +237,15 @@ def deliver_notifications(connection, config, *, dry_run=False, now=None):
             summary['skipped'] += 1
             continue
         expired = event['kind'] == 'price' and instant - created > PRICE_ALERT_RETRY_WINDOW
-        if not dry_run:
+        if not dry_run and not previous:
             with connection:
                 connection.execute('''INSERT OR IGNORE INTO notification_deliveries
-                    (event_key,recipient,kind,watch_id,created_at) VALUES (?,?,?,?,?)''',
-                    (event['event_key'], config.recipient, event['kind'], event['watch_id'], event['created_at']))
+                    (event_key,recipient,kind,watch_id,created_at,status) VALUES (?,?,?,?,?,?)''',
+                    (event['event_key'], config.recipient, event['kind'], event['watch_id'], event['created_at'],
+                     'expired' if expired else 'pending'))
         if expired:
             summary['expired'] += 1
-            if not dry_run:
+            if not dry_run and previous and (previous['status'] != 'expired' or previous['retry_at'] is not None):
                 with connection:
                     connection.execute('''UPDATE notification_deliveries SET status='expired',retry_at=NULL
                         WHERE event_key=? AND recipient=?''', (event['event_key'], config.recipient))

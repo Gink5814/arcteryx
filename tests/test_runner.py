@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from arcteryx_prices.__main__ import main
 from arcteryx_prices.collector import CollectorError
@@ -80,7 +81,7 @@ class RunnerTest(unittest.TestCase):
     def test_extended_stock_states_through_collection_confirmation_and_email(self):
         config = GmailConfig(user='sender@example.com', recipient='owner@example.com', password='abcdefghijklmnop')
         for stock, available in (('LimitedAvailability', True), ('OnlineOnly', True),
-                                 ('PreOrder', False), ('BackOrder', False)):
+                                 ('PreOrder', False), ('BackOrder', False), ('Discontinued', False)):
             with self.subTest(stock=stock):
                 self.path = Path(self.temp.name) / f'{stock}.sqlite3'
                 self.watch()
@@ -101,6 +102,32 @@ class RunnerTest(unittest.TestCase):
                 self.assertEqual(result['notifications']['sent'], int(available))
                 self.assertEqual(page.call_count, 2 if available else 1)
                 self.assertEqual(smtp.return_value.send_message.call_count, int(available))
+
+    def test_repeated_website_blocks_send_a_specific_health_email_without_fake_prices(self):
+        self.watch()
+        config = GmailConfig(user='sender@example.com', recipient='owner@example.com', password='abcdefghijklmnop')
+        def blocked(*args, **kwargs):
+            raise HTTPError(URL, 403, 'private error detail', {}, io.BytesIO(b'<title>Access Denied</title>'))
+        with patch('arcteryx_prices.collector.build_opener') as opener, \
+                patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp:
+            opener.return_value.open.side_effect = blocked
+            smtp.return_value.send_message.return_value = {}
+            for attempt in range(3):
+                result, code = run_once(self.path, config, now=f'2026-10-27T{12 + attempt}:00:00Z')
+                self.assertEqual(code, 1)
+                self.assertEqual(result['checks'][0]['status'], 'site_blocked')
+                self.assertEqual(result['alerts_created'], 0)
+                self.assertEqual(result['notifications']['sent'], int(attempt == 2))
+            smtp.return_value.send_message.assert_called_once()
+            message = smtp.return_value.send_message.call_args.args[0]
+            self.assertIn('被网站拦截', str(message['Subject']))
+            self.assertNotIn('private error detail', message.get_content())
+        connection = initialize_monitor(self.path)
+        try:
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0], 0)
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM monitor_alerts').fetchone()[0], 0)
+        finally:
+            connection.close()
 
     def test_empty_watch_list_is_explicitly_degraded(self):
         with patch('arcteryx_prices.runner.deliver_notifications', return_value=DELIVERY):

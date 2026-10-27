@@ -3,6 +3,7 @@
 import hashlib
 import os
 import smtplib
+import sqlite3
 import ssl
 import tempfile
 import unittest
@@ -196,6 +197,42 @@ class NotificationTest(unittest.TestCase):
         self.assertEqual(self.factory.call_count, 1)
         self.assertEqual(self.deliver(BASE + timedelta(days=8))['sent'], 0)
 
+    def test_known_deferred_expired_and_sent_events_need_no_database_writes(self):
+        self.alert()
+        self.smtp.send_message.side_effect = TimeoutError('synthetic unavailable Gmail')
+        self.assertEqual(self.deliver()['failed'], 1)
+
+        def assert_read_only(at, field, expected):
+            before = self.db.total_changes
+            write_actions = {sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE,
+                             sqlite3.SQLITE_CREATE_TABLE, sqlite3.SQLITE_CREATE_INDEX}
+            self.db.set_authorizer(lambda action, *_: sqlite3.SQLITE_DENY if action in write_actions else sqlite3.SQLITE_OK)
+            try:
+                self.assertEqual(self.deliver(at)[field], expected)
+                self.assertEqual(self.db.total_changes, before)
+            finally:
+                self.db.set_authorizer(None)
+
+        assert_read_only(BASE + timedelta(minutes=10), 'pending', 1)
+        self.assertEqual(self.deliver(BASE + timedelta(days=8))['expired'], 1)
+        assert_read_only(BASE + timedelta(days=9), 'expired', 1)
+
+        self.smtp.send_message.side_effect = None
+        at = BASE + timedelta(days=10)
+        self.alert(self.watch('second'), at=at)
+        self.assertEqual(self.deliver(at)['sent'], 1)
+        assert_read_only(at + timedelta(minutes=1), 'skipped', 1)
+        self.assertEqual(self.factory.call_count, 2)
+
+    def test_new_expired_event_is_recorded_with_one_write_and_no_email(self):
+        self.alert()
+        before = self.db.total_changes
+        result = self.deliver(BASE + timedelta(days=8))
+        self.assertEqual(result['expired'], 1)
+        self.assertEqual(self.db.total_changes - before, 1)
+        self.assertEqual(self.ledger()[0]['status'], 'expired')
+        self.factory.assert_not_called()
+
     def test_sleep_and_gmail_failure_do_not_drop_alerts_after_one_day(self):
         self.alert()
         self.smtp.send_message.side_effect = TimeoutError('synthetic unavailable Gmail')
@@ -276,6 +313,28 @@ class NotificationTest(unittest.TestCase):
         self.assertEqual(self.deliver(BASE + timedelta(days=2))['sent'], 0)
         self.unhealthy(watch, at=BASE + timedelta(days=3), success=BASE + timedelta(days=2))
         self.assertEqual(self.deliver(BASE + timedelta(days=3))['sent'], 1)
+
+    def test_blocked_health_email_names_cause_without_raw_error_or_early_send(self):
+        watch = self.watch()
+        self.unhealthy(watch)
+        with self.db:
+            self.db.execute('''UPDATE monitor_watches SET last_status='site_blocked',
+                consecutive_failures=2,last_error=?,next_due_at=? WHERE id=?''',
+                ('private challenge token ' + PASSWORD, canonical_time(BASE + timedelta(hours=1)), watch['id']))
+        self.assertEqual(self.deliver()['sent'], 0)
+        self.factory.assert_not_called()
+        with self.db:
+            self.db.execute('UPDATE monitor_watches SET consecutive_failures=3 WHERE id=?', (watch['id'],))
+        self.assertEqual(self.deliver()['sent'], 1)
+        message = self.smtp.send_message.call_args.args[0]
+        self.assertIn('被网站拦截', message['Subject'])
+        self.assertIn('被网站拦截', message.get_content())
+        self.assertIn('Status: site_blocked', message.get_content())
+        self.assertIn('Next scheduled attempt (UTC): ' + canonical_time(BASE + timedelta(hours=1)), message.get_content())
+        self.assertNotIn('private challenge token', message.get_content())
+        self.assertNotIn(PASSWORD, str(message))
+        self.assertEqual(self.deliver(BASE + timedelta(hours=1))['sent'], 0)
+        self.smtp.send_message.assert_called_once()
 
     def test_recovered_health_failure_is_not_retried(self):
         watch = self.watch()

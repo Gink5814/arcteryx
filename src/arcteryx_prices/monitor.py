@@ -329,6 +329,12 @@ def list_alerts(connection):
         (MARKET, CURRENCY, CURRENCY))]
 
 
+def _page_identity(location):
+    """Identify an already validated product page without tracking parameters."""
+    parsed = urlsplit(location['url'])
+    return parsed.scheme, parsed.netloc, parsed.path, location['market'], location['currency']
+
+
 def _quote(watch, value):
     if not isinstance(value, dict):
         raise ValueError('collector did not return a quote object')
@@ -354,7 +360,9 @@ def _quote(watch, value):
     except ValueError as exc:
         raise ValueError('quote evidence digest is not hexadecimal') from exc
     location = _validate_url(result['source_url'])
-    if any(location[key] != watch[key] for key in ('url', 'market', 'currency')):
+    watched_location = _validate_url(watch['url'])
+    if (any(location[key] != watch[key] for key in ('market', 'currency'))
+            or _page_identity(location) != _page_identity(watched_location)):
         raise ValueError('quote source URL or market does not match the watch')
     result['source_url'] = location['url']
     for key in ('sku', 'color', 'size', 'market', 'currency'):
@@ -501,8 +509,11 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                             'check_status': 'rate_limited', 'alert': None, 'checks': checks, 'checking': False}
                     checks.append(confirmation)
                     if confirmation['status'] != 'ok':
-                        status, error = 'verification_failed', confirmation['error']
-                    elif any(confirmation['quote'][key] != quote[key] for key in ('price_minor', 'availability', 'source_url')):
+                        status = 'site_blocked' if confirmation['status'] == 'site_blocked' else 'verification_failed'
+                        error = confirmation['error']
+                    # _quote already validated both source pages and exact
+                    # variants. Tracking query changes do not change identity.
+                    elif any(confirmation['quote'][key] != quote[key] for key in ('price_minor', 'availability')):
                         status, error = 'verification_changed', 'Price or availability changed during confirmation; no alert emitted.'
                     else:
                         quote = confirmation['quote']

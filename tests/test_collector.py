@@ -4,6 +4,8 @@ import hashlib
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
+from email.message import Message
+from http.client import IncompleteRead
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
@@ -11,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 from arcteryx_prices.collector import (
-    BatchQuoteCollector, CollectorError, MAX_RESPONSE_BYTES, _StrictRedirectHandler, _parse_quote, _retry_after,
+    BatchQuoteCollector, CollectorError, MAX_CHALLENGE_BYTES, MAX_RESPONSE_BYTES, _StrictRedirectHandler, _parse_quote, _retry_after,
     collect_quote, discover_variants, parse_product_html, supported_retailers, validate_product_url,
 )
 
@@ -34,6 +36,19 @@ def product(**overrides):
 
 def html(node):
     return ('<!-- SYNTHETIC --> <script type="application/ld+json">' + json.dumps(node) + '</script>').encode()
+
+
+class PageResponse(BytesIO):
+    def __init__(self, body, *, status=200, headers=None):
+        super().__init__(body)
+        self.status = status
+        self.headers = Message()
+        self.headers['Content-Type'] = 'text/html'
+        for key, value in (headers or {}).items():
+            self.headers[key] = value
+
+    def geturl(self):
+        return URL
 
 
 class CollectorTests(unittest.TestCase):
@@ -122,6 +137,7 @@ class CollectorTests(unittest.TestCase):
         for stock, expected in (
             ('LimitedAvailability', 'in_stock'), ('OnlineOnly', 'in_stock'),
             ('PreOrder', 'out_of_stock'), ('BackOrder', 'out_of_stock'),
+            ('Discontinued', 'out_of_stock'),
         ):
             for prefix in ('', 'http://schema.org/', 'https://schema.org/'):
                 with self.subTest(stock=stock, prefix=prefix):
@@ -275,6 +291,7 @@ class CollectorTests(unittest.TestCase):
                     collect_quote(WATCH)
                 error = failure.exception
                 self.assertEqual(error.http_status, code)
+                self.assertEqual(error.status, 'site_blocked' if code == 403 else 'http_error')
                 self.assertEqual(error.response_url, URL)
                 self.assertEqual(error.retryable, retryable)
                 self.assertGreaterEqual(error.retry_after, before + timedelta(days=1))
@@ -290,6 +307,97 @@ class CollectorTests(unittest.TestCase):
             self.assertIsNone(failure.exception.retry_after)
             self.assertNotIn('PRIVATE', str(failure.exception))
         self.assertFalse(CollectorError('identity_mismatch', 'SYNTHETIC').retryable)
+
+    def test_http_challenge_preserves_retry_metadata_and_hides_response_body(self):
+        body = BytesIO(b'<title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/a.js"></script>PRIVATE TOKEN')
+        with patch('arcteryx_prices.collector.build_opener') as opener:
+            opener.return_value.open.side_effect = HTTPError(URL, 503, 'PRIVATE RESPONSE',
+                                                            {'Retry-After': '7200'}, body)
+            before = datetime.now(timezone.utc)
+            with self.assertRaises(CollectorError) as raised:
+                collect_quote(WATCH)
+        error = raised.exception
+        self.assertEqual((error.status, error.http_status, error.retryable), ('site_blocked', 503, True))
+        self.assertGreaterEqual(error.retry_after, before + timedelta(hours=2))
+        self.assertNotIn('PRIVATE', str(error))
+        self.assertNotIn('TOKEN', str(error))
+        self.assertTrue(body.closed)
+
+    def test_http_200_challenge_rejects_both_discovery_and_collection(self):
+        for body, headers in (
+            (b'<title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/a.js"></script>', {}),
+            (b'<title>Verify you are human</title><div class="g-recaptcha"></div>', {}),
+            (b'PRIVATE CHALLENGE BODY', {'CF-Mitigated': 'challenge'}),
+        ):
+            for function, argument in ((collect_quote, WATCH), (discover_variants, URL)):
+                with self.subTest(function=function.__name__, body=body):
+                    response = PageResponse(body, headers=headers)
+                    with patch('arcteryx_prices.collector.build_opener') as opener:
+                        opener.return_value.open.return_value = response
+                        with self.assertRaises(CollectorError) as raised:
+                            function(argument)
+                    self.assertEqual(raised.exception.status, 'site_blocked')
+                    self.assertEqual(raised.exception.http_status, 200)
+                    self.assertFalse(raised.exception.retryable)
+                    self.assertNotIn('PRIVATE', str(raised.exception))
+                    self.assertTrue(response.closed)
+
+    def test_product_page_captcha_sdk_and_body_word_do_not_signal_blocking(self):
+        body = (b'<title>Arc\'teryx Synthetic Shell</title>' + html(product()) +
+                b'<footer>Contact us: complete the captcha</footer>'
+                b'<script src="https://www.google.com/recaptcha/api.js"></script><div class="g-recaptcha"></div>')
+        response = PageResponse(body)
+        with patch('arcteryx_prices.collector.build_opener') as opener:
+            opener.return_value.open.return_value = response
+            result = collect_quote(WATCH)
+        self.assertEqual(result['price_minor'], 49995)
+        self.assertEqual(result['availability'], 'in_stock')
+        self.assertTrue(response.closed)
+
+    def test_error_body_inspection_is_bounded_and_response_is_closed(self):
+        class RecordingBody(BytesIO):
+            requested = []
+
+            def read(self, size=-1):
+                self.requested.append(size)
+                return super().read(size)
+
+        body = RecordingBody(b'x' * (MAX_CHALLENGE_BYTES * 2))
+        with patch('arcteryx_prices.collector.build_opener') as opener:
+            opener.return_value.open.side_effect = HTTPError(URL, 403, 'PRIVATE', {}, body)
+            with self.assertRaises(CollectorError) as raised:
+                collect_quote(WATCH)
+        self.assertEqual(raised.exception.status, 'site_blocked')
+        self.assertIn('cause is not established', str(raised.exception))
+        self.assertEqual(body.requested, [MAX_CHALLENGE_BYTES])
+        self.assertTrue(body.closed)
+
+    def test_unreadable_error_body_keeps_http_status_and_releases_response(self):
+        class InterruptedBody(BytesIO):
+            def read(self, size=-1):
+                raise IncompleteRead(b'PRIVATE PARTIAL BODY')
+
+        body = InterruptedBody()
+        with patch('arcteryx_prices.collector.build_opener') as opener:
+            opener.return_value.open.side_effect = HTTPError(URL, 403, 'PRIVATE', {}, body)
+            with self.assertRaises(CollectorError) as raised:
+                collect_quote(WATCH)
+        self.assertEqual((raised.exception.status, raised.exception.http_status), ('site_blocked', 403))
+        self.assertNotIn('PRIVATE', str(raised.exception))
+        self.assertTrue(body.closed)
+
+    def test_error_response_close_failure_preserves_safe_blocked_status(self):
+        for close_error in (OSError('PRIVATE CLEANUP ERROR'), IncompleteRead(b'PRIVATE CLEANUP BODY')):
+            with self.subTest(close_error=type(close_error).__name__):
+                response = HTTPError(URL, 403, 'PRIVATE RESPONSE', {}, BytesIO())
+                with patch.object(response, 'close', side_effect=close_error) as close, \
+                        patch('arcteryx_prices.collector.build_opener') as opener:
+                    opener.return_value.open.side_effect = response
+                    with self.assertRaises(CollectorError) as raised:
+                        collect_quote(WATCH)
+                close.assert_called_once()
+                self.assertEqual((raised.exception.status, raised.exception.http_status), ('site_blocked', 403))
+                self.assertNotIn('PRIVATE', str(raised.exception))
 
     def test_http_response_url_metadata_accepts_only_supported_product_locations(self):
         for url, expected in (

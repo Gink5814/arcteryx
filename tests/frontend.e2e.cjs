@@ -338,6 +338,17 @@ async function main() {
     assert.equal(await page.locator('.watch-card').count(), 1);
     await page.locator('#reset-filters').click();
 
+    const beforeBlocked = { ...fixture.watches[0] };
+    Object.assign(fixture.watches[0], { status: 'site_blocked', stale: true,
+      last_error: 'Product access was blocked by the website (HTTP 403).', consecutive_failures: 1 });
+    await refresh();
+    assert.match(await failedCard.locator('.status-badge').innerText(), /被网站拦截/);
+    assert.equal(await failedCard.locator('.metric-current .metric-value').innerText(), '—');
+    assert.match(await failedCard.locator('.price-grid').innerText(), /120\.00/,
+      'a blocked source preserves its recorded price history');
+    Object.assign(fixture.watches[0], beforeBlocked);
+    await refresh();
+
     // Advance the browser clock without sleeping. Expiry must update controls
     // even when every API field (including the deadline) remains unchanged.
     await page.clock.setFixedTime(new Date('2026-10-27T00:00:00Z'));
@@ -441,7 +452,7 @@ async function main() {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'retailer filters fit mobile layout');
     assert.deepEqual(fixture.failures, []);
     assert.deepEqual(errors, [], 'no JavaScript or CSP runtime failures');
-    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
+    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, blocked-source status, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

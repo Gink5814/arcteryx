@@ -215,7 +215,7 @@ function statusInfo(watch) {
   if (watch.checking || pending.has(`check-${watch.id}`)) return { text: "正在检查", tone: "neutral" };
   const statuses = {
     rate_limited: "来源暂缓检查", backoff: "等待重试",
-    network_error: "连接失败", http_error: "来源请求失败", parse_error: "页面待适配",
+    network_error: "连接失败", http_error: "来源请求失败", site_blocked: "被网站拦截", parse_error: "页面待适配",
     identity_mismatch: "变体待确认", currency_mismatch: "币种不一致",
     availability_unknown: "库存待确认", verification_failed: "复核未通过",
     confirmation_failed: "复核未通过", confirmation_changed: "复核报价变化",
