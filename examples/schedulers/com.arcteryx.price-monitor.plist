@@ -8,7 +8,7 @@
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec "/absolute/python3" "/absolute/arcteryx/scripts/run-monitor.py" --db "/absolute/arcteryx/data/prices.sqlite3" run-once --notify gmail --env-file "/absolute/private/gmail.env" &gt; "/absolute/private/last-run.log" 2&gt;&amp;1</string>
+        <string>exec "/absolute/python3" "/absolute/arcteryx/scripts/run-monitor.py" --db "/absolute/private/arcteryx/prices.sqlite3" run-once --notify gmail --env-file "/absolute/private/gmail.env" &gt; "/absolute/private/last-run.log" 2&gt;&amp;1</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

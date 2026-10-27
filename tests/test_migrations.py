@@ -50,7 +50,8 @@ class IntervalMigrationTest(unittest.TestCase):
             self.db.execute('''UPDATE monitor_watches SET lease_token='synthetic-lease',lease_until=?,
                 retry_not_before=? WHERE id=?''',
                 (canonical_time(BASE + timedelta(minutes=10)), canonical_time(BASE + timedelta(hours=1)), self.watch['id']))
-            self.db.execute('''INSERT INTO monitor_host_cooldowns VALUES ('arcteryx.com',?,429,?)''',
+            self.db.execute('''INSERT INTO monitor_host_cooldowns(host,not_before,http_status,updated_at)
+                VALUES ('arcteryx.com',?,429,?)''',
                             (canonical_time(BASE + timedelta(hours=1)), canonical_time(BASE)))
 
     def tearDown(self):

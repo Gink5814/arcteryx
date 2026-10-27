@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 $MonitorPython = 'C:\Path\To\Python\python.exe'
 $MonitorScript = 'C:\Path\To\arcteryx\scripts\run-monitor.py'
-$MonitorDatabase = 'C:\Path\To\arcteryx\data\prices.sqlite3'
+$MonitorDatabase = 'C:\Private\arcteryx\prices.sqlite3'
 $MonitorCredentials = 'C:\Private\gmail.env'
 $MonitorLog = 'C:\Private\last-run.log'
 

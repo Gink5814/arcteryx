@@ -347,7 +347,7 @@ class NotificationTest(unittest.TestCase):
         self.unhealthy(watch, at=BASE + timedelta(days=3), success=BASE + timedelta(days=2))
         self.assertEqual(self.deliver(BASE + timedelta(days=3))['sent'], 1)
 
-    def test_blocked_health_email_names_cause_without_raw_error_or_early_send(self):
+    def test_blocked_health_email_names_cause_without_raw_error(self):
         watch = self.watch()
         self.unhealthy(watch)
         with self.db:
@@ -357,7 +357,10 @@ class NotificationTest(unittest.TestCase):
         self.assertEqual(self.deliver()['sent'], 0)
         self.factory.assert_not_called()
         with self.db:
-            self.db.execute('UPDATE monitor_watches SET consecutive_failures=3 WHERE id=?', (watch['id'],))
+            self.db.execute('''INSERT INTO monitor_host_cooldowns
+                (host,not_before,http_status,updated_at,status,blocked_since,consecutive_blocks)
+                VALUES ('arcteryx.com',?,403,?,'site_blocked',?,1)''',
+                (canonical_time(BASE + timedelta(hours=1)), canonical_time(BASE), canonical_time(BASE)))
         self.assertEqual(self.deliver()['sent'], 1)
         message = self.smtp.send_message.call_args.args[0]
         self.assertIn('被网站拦截', message['Subject'])

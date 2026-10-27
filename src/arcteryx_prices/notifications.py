@@ -20,8 +20,10 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .database import canonical_time, parse_time
+from .source_health import blocked_sources
 
 
 SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'notifications.sql'
@@ -106,10 +108,27 @@ def _events(connection):
             ORDER BY a.id'''):
         event = dict(row)
         yield event | {'event_key': f"price:{event['id']}", 'kind': 'price'}
+    sources = blocked_sources(connection)
+    blocked_hosts = {source['host'] for source in sources}
+    for source in sources:
+        watch = source['representative']
+        yield watch | {
+            'event_key': f"health:source:{source['host']}:{source['blocked_since']}",
+            'kind': 'health', 'source_block': True, 'host': source['host'],
+            'watch_id': watch['id'], 'created_at': source['blocked_since'],
+            'affected_watches': source['affected_watches'],
+            'last_checked_at': source['updated_at'], 'next_due_at': source['not_before'],
+            'consecutive_failures': source['consecutive_blocks'], 'last_status': 'site_blocked',
+        }
     for row in connection.execute('''SELECT * FROM monitor_watches
             WHERE enabled=1 AND market='US' AND currency='USD' AND consecutive_failures>=3
             ORDER BY id'''):
         watch = dict(row)
+        # Block notices belong to the source episode, not to every cached SKU.
+        # A stale per-watch block must not reappear after source recovery. Legacy
+        # blocked watches acquire source metadata on the next real blocked check.
+        if watch['last_status'] == 'site_blocked' or urlsplit(watch['url']).hostname in blocked_hosts:
+            continue
         episode = watch['last_success_at'] or watch['created_at']
         yield watch | {'event_key': f"health:{watch['id']}:{episode}", 'kind': 'health',
                        'watch_id': watch['id'], 'created_at': watch['last_checked_at'] or watch['created_at']}
@@ -127,6 +146,20 @@ def _message(event, config=None):
                 'This exact variant was in stock at the recorded confirmation time. '
                 'Price and stock may have changed; confirm them before buying. '
                 'Price excludes tax and shipping.\n')
+    elif event.get('source_block'):
+        subject = f"Arc'teryx 被网站拦截 / website access blocked: {event['host']}"
+        body = (f"Retailer: {event['retailer_name']}\nSource: {event['host']}\n"
+                f"Affected enabled watches: {event['affected_watches']}\nStatus: site_blocked\n"
+                f"First blocked attempt (UTC): {event['created_at']}\n"
+                f"Last attempt (UTC): {event['last_checked_at']}\n"
+                f"Next scheduled attempt (UTC): {event['next_due_at']}\n\n"
+                '被网站拦截：此来源的价格和库存当前无法核验，已暂停该来源的请求。\n'
+                'Price and stock coverage for this source is unavailable. Requests to this '
+                'source are paused until the scheduled retry. Access was denied or a verification '
+                'page was returned; check the retailer page in your browser and your network/proxy settings.\n'
+                'This is one source notice for the current outage, not one notice per color or size. '
+                'A new notice becomes eligible after verified source recovery and another block.\n\n'
+                f"Example affected product: {event['url']}\n")
     else:
         blocked = event['last_status'] == 'site_blocked'
         subject = (f"Arc'teryx 被网站拦截 / website access blocked: {label}" if blocked

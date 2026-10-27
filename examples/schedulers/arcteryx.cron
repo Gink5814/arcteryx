@@ -1,5 +1,6 @@
 # Add this line with crontab -e after replacing all absolute paths.
 # Create the private log directory and chmod 600 the Gmail env file first.
 # Run the scheduler every 5 minutes; each watch keeps its own interval (15+ minutes).
-# Do not add --force. The log is overwritten with the most recent run.
-*/5 * * * * "/absolute/python3" "/absolute/arcteryx/scripts/run-monitor.py" --db "/absolute/arcteryx/data/prices.sqlite3" run-once --notify gmail --env-file "/absolute/private/gmail.env" > "/absolute/private/last-run.log" 2>&1
+# Do not add --force. Keep the database outside the checkout and append logs.
+# Optional bounded retention: configure the adjacent arcteryx.logrotate example.
+*/5 * * * * umask 077; "/absolute/python3" "/absolute/arcteryx/scripts/run-monitor.py" --db "/absolute/private/arcteryx/prices.sqlite3" run-once --notify gmail --env-file "/absolute/private/gmail.env" >> "/absolute/private/monitor.log" 2>&1

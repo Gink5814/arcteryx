@@ -1,0 +1,10 @@
+# Optional Linux logrotate configuration; replace the path and use a private directory.
+# Run logrotate through the system's normal daily rotation schedule.
+/absolute/private/monitor.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

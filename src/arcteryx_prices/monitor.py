@@ -64,6 +64,9 @@ def initialize_monitor(db_path):
         ),
         'monitor_checks': (('http_status', 'INTEGER'), ('retryable', 'INTEGER NOT NULL DEFAULT 0'),
                            ('retry_after', 'TEXT')),
+        'monitor_host_cooldowns': (('status', "TEXT NOT NULL DEFAULT 'rate_limited'"),
+                                   ('blocked_since', 'TEXT'),
+                                   ('consecutive_blocks', 'INTEGER NOT NULL DEFAULT 0')),
     }
     for table, additions in migrations.items():
         columns = {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}
@@ -157,6 +160,12 @@ def _cooldown_until(connection, url, instant):
     return row['not_before'] if row and parse_time(row['not_before']) > instant else None
 
 
+def _cooldown_status(connection, url, instant):
+    row = connection.execute('SELECT status,not_before FROM monitor_host_cooldowns WHERE host=?',
+                             (urlsplit(url).hostname,)).fetchone()
+    return row['status'] if row and parse_time(row['not_before']) > instant else None
+
+
 def _waiting(connection, watch, instant):
     host_until = _cooldown_until(connection, watch['url'], instant)
     retry_until = watch.get('retry_not_before')
@@ -171,7 +180,7 @@ def _failure_metadata(exc, status=None, now=None):
     if type(code) is not int or not 100 <= code <= 599:
         code = None
     status = status or getattr(exc, 'status', None)
-    retryable = (status == 'network_error' or code in (408, 429)
+    retryable = (status in {'network_error', 'site_blocked'} or code in (403, 408, 429)
                  or code is not None and 500 <= code <= 599)
     retry_after = getattr(exc, 'retry_after', None)
     try:
@@ -186,7 +195,8 @@ def _failure_metadata(exc, status=None, now=None):
             response_url = _validate_url(response_url)['url']
         except (TypeError, ValueError):
             response_url = None
-    return {'http_status': code, 'retryable': bool(retryable), 'retry_after': retry_after,
+    return {'status': 'site_blocked' if code == 403 else status,
+            'http_status': code, 'retryable': bool(retryable), 'retry_after': retry_after,
             'response_url': response_url}
 
 
@@ -197,22 +207,56 @@ def _failure_delay(interval_minutes, failures):
 
 def _record_host_failure(connection, url, metadata, instant, fallback):
     code, requested = metadata['http_status'], metadata['retry_after']
-    if code != 429 and not (code == 503 and requested):
-        return
-    deadline = max(instant + fallback, parse_time(requested)) if requested else instant + fallback
-    ceiling = instant + MAX_RETRY_DELAY
-    deadline = min(deadline, ceiling)
+    blocked = metadata.get('status') == 'site_blocked' or code == 403
+    starts_wait = blocked or code == 429 or code == 503 and requested
     hosts = {urlsplit(url).hostname}
     if metadata.get('response_url'):
         hosts.add(urlsplit(metadata['response_url']).hostname)
+    if not starts_wait and not any(connection.execute(
+            'SELECT 1 FROM monitor_host_cooldowns WHERE host=? AND blocked_since IS NOT NULL',
+            (host,)).fetchone() for host in hosts):
+        return
+    deadline = instant if blocked else instant + fallback
+    if requested:
+        deadline = max(deadline, parse_time(requested))
+    ceiling = instant + MAX_RETRY_DELAY
+    deadline = min(deadline, ceiling)
     stamp = canonical_time(instant)
     with connection:
+        connection.execute('BEGIN IMMEDIATE')
         for host in hosts:
-            connection.execute('''INSERT INTO monitor_host_cooldowns(host,not_before,http_status,updated_at)
-                VALUES (?,?,?,?) ON CONFLICT(host) DO UPDATE SET
+            old = connection.execute('SELECT * FROM monitor_host_cooldowns WHERE host=?', (host,)).fetchone()
+            blocks = (old['consecutive_blocks'] if old else 0) + int(blocked)
+            since = old['blocked_since'] if old else None
+            if not starts_wait and not since:
+                continue
+            host_deadline = deadline
+            if blocked:
+                since = since or stamp
+            if since:
+                # A failed recovery probe must not release the rest of the
+                # host's watches merely because its error changed category.
+                host_deadline = min(max(deadline, instant + _failure_delay(60, blocks)), ceiling)
+            status = 'site_blocked' if since else 'rate_limited'
+            connection.execute('''INSERT INTO monitor_host_cooldowns
+                (host,not_before,http_status,updated_at,status,blocked_since,consecutive_blocks)
+                VALUES (?,?,?,?,?,?,?) ON CONFLICT(host) DO UPDATE SET
                 not_before=MIN(MAX(monitor_host_cooldowns.not_before,excluded.not_before),?),
-                http_status=excluded.http_status,updated_at=excluded.updated_at''',
-                (host, canonical_time(deadline), code, stamp, canonical_time(ceiling)))
+                http_status=excluded.http_status,updated_at=excluded.updated_at,
+                status=excluded.status,blocked_since=excluded.blocked_since,
+                consecutive_blocks=excluded.consecutive_blocks''',
+                (host, canonical_time(host_deadline), code or 0, stamp, status, since, blocks,
+                 canonical_time(ceiling)))
+
+
+def _record_host_success(connection, url, captured_at):
+    # A stale cached quote cannot erase a newer failure or an active wait.
+    parameters = (urlsplit(url).hostname, canonical_time(captured_at), canonical_time(captured_at))
+    predicate = 'host=? AND not_before<=? AND updated_at<=?'
+    if not connection.execute(f'SELECT 1 FROM monitor_host_cooldowns WHERE {predicate}', parameters).fetchone():
+        return
+    with connection:
+        connection.execute(f'DELETE FROM monitor_host_cooldowns WHERE {predicate}', parameters)
 
 
 def discover_for_monitor(connection, url, now=None):
@@ -222,10 +266,13 @@ def discover_for_monitor(connection, url, now=None):
     instant = _now(now)
     deadline = _cooldown_until(connection, location['url'], instant)
     if deadline:
-        raise CollectorError('rate_limited', 'This source is waiting before its next request.',
+        status = _cooldown_status(connection, location['url'], instant)
+        raise CollectorError(status, 'This source is waiting before its next request.',
                              retryable=True, retry_after=parse_time(deadline))
     try:
-        return discover_variants(location['url'])
+        result = discover_variants(location['url'])
+        _record_host_success(connection, location['url'], _now(now))
+        return result
     except CollectorError as exc:
         failed_at = _now(now)
         metadata = _failure_metadata(exc, now=failed_at)
@@ -255,6 +302,11 @@ def _public(connection, row, now=None):
     result['last_success'] = row['last_success_at']
     result['checking'] = bool(row['lease_until'] and parse_time(row['lease_until']) > instant)
     result['next_retry_at'], result['cooldown_until'] = _waiting(connection, row, instant)
+    result['cooldown_status'] = _cooldown_status(connection, row['url'], instant)
+    if row['enabled'] and result['cooldown_status'] == 'site_blocked':
+        result.update(status='site_blocked', stale=True, current_price_minor=None, current_price=None)
+        if row['last_status'] != 'site_blocked':
+            result['last_error'] = 'This retailer blocked requests; all its watches are waiting before retrying.'
     result['metrics'] = metrics(
         connection, product_key=row['product_key'], variant_key=row['variant_key'],
         market=row['market'], currency=row['currency'], as_of=canonical_time(instant),
@@ -417,15 +469,18 @@ def _quote(watch, value):
 
 def _collect(connection, watch, fetcher, stage, instant, now=None):
     from .collector import BatchQuoteCollector
-    deadline = _cooldown_until(connection, watch['url'], _now(now))
+    checked_at = _now(now)
+    deadline = _cooldown_until(connection, watch['url'], checked_at)
     if deadline:
-        return {'stage': stage, 'status': 'rate_limited', 'error': 'Source cooldown is active.',
+        return {'stage': stage, 'status': _cooldown_status(connection, watch['url'], checked_at),
+                'error': 'Source cooldown is active.',
                 'quote': None, 'http_status': None, 'retryable': True,
                 'retry_after': deadline, 'attempted': False}
     try:
         value = (fetcher.collect(dict(watch), stage=stage) if isinstance(fetcher, BatchQuoteCollector)
                  else fetcher(dict(watch)))
         quote = _quote(watch, value)
+        _record_host_success(connection, watch['url'], quote['captured_at'])
         entry = {'stage': stage, 'status': 'ok', 'error': None, 'quote': quote,
                  'http_status': None, 'retryable': False, 'retry_after': None, 'attempted': True}
     except Exception as exc:
@@ -437,6 +492,9 @@ def _collect(connection, watch, fetcher, stage, instant, now=None):
                  'attempted': True} | _failure_metadata(exc, status, now=failed_at)
         _record_host_failure(connection, watch['url'], entry, failed_at,
                              _failure_delay(watch['interval_minutes'], watch['consecutive_failures'] + 1))
+        deadline = _cooldown_until(connection, watch['url'], failed_at)
+        if deadline:
+            entry['retry_after'] = deadline
     with connection:
         connection.execute('''INSERT INTO monitor_checks
             (watch_id,checked_at,stage,status,error,quote_json,http_status,retryable,retry_after)
@@ -494,7 +552,8 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
     deadline, host_deadline = _waiting(connection, watch, instant)
     if deadline:
         return _public(connection, watch, instant) | {
-            'check_status': 'rate_limited' if host_deadline else 'backoff', 'alert': None, 'checks': []}
+            'check_status': _cooldown_status(connection, watch['url'], instant) if host_deadline else 'backoff',
+            'alert': None, 'checks': []}
     token = uuid.uuid4().hex
     due_stamp = canonical_time(due_before) if due_before is not None else None
     with connection:
@@ -509,7 +568,7 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
     if not acquired:
         current = _row(connection, watch_id)
         waiting, host_deadline = _waiting(connection, current, instant)
-        skip_status = ('rate_limited' if host_deadline else 'backoff') if waiting else (
+        skip_status = (_cooldown_status(connection, current['url'], instant) if host_deadline else 'backoff') if waiting else (
             'not_due' if due_stamp and current['next_due_at'] and current['next_due_at'] > due_stamp else 'busy')
         return _public(connection, current, instant) | {'check_status': skip_status, 'alert': None, 'checks': []}
     watch = _row(connection, watch_id)
@@ -520,7 +579,7 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
         first = _collect(connection, watch, fetcher, 'primary', instant, now=now)
         if not first['attempted']:
             return _public(connection, _row(connection, watch_id), _now(now)) | {
-                'check_status': 'rate_limited', 'alert': None, 'checks': [], 'checking': False}
+                'check_status': first['status'], 'alert': None, 'checks': [], 'checking': False}
         checks.append(first)
         status, error = first['status'], first['error']
         quote = first['quote']
@@ -550,7 +609,7 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                     confirmation = _collect(connection, watch, fetcher, 'confirmation', instant, now=now)
                     if not confirmation['attempted']:
                         return _public(connection, _row(connection, watch_id), _now(now)) | {
-                            'check_status': 'rate_limited', 'alert': None, 'checks': checks, 'checking': False}
+                            'check_status': confirmation['status'], 'alert': None, 'checks': checks, 'checking': False}
                     checks.append(confirmation)
                     if confirmation['status'] != 'ok':
                         status = 'site_blocked' if confirmation['status'] == 'site_blocked' else 'verification_failed'
@@ -608,7 +667,8 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                     updates['consecutive_failures'] = failures
                     failed = checks[-1]
                     if failed['retryable']:
-                        retry_at = finished + _failure_delay(watch['interval_minutes'], failures)
+                        retry_at = (finished + timedelta(minutes=watch['interval_minutes']) if status == 'site_blocked' else
+                                    finished + _failure_delay(watch['interval_minutes'], failures))
                         if failed['retry_after']:
                             retry_at = max(retry_at, parse_time(failed['retry_after']))
                         host_until = _cooldown_until(connection, watch['url'], finished)

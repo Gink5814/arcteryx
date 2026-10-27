@@ -112,12 +112,12 @@ class RunnerTest(unittest.TestCase):
                 patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp:
             opener.return_value.open.side_effect = blocked
             smtp.return_value.send_message.return_value = {}
-            for attempt in range(3):
-                result, code = run_once(self.path, config, now=f'2026-10-27T{12 + attempt}:00:00Z')
+            for attempt, hour in enumerate((12, 13, 15)):
+                result, code = run_once(self.path, config, now=f'2026-10-27T{hour}:00:00Z')
                 self.assertEqual(code, 1)
                 self.assertEqual(result['checks'][0]['status'], 'site_blocked')
                 self.assertEqual(result['alerts_created'], 0)
-                self.assertEqual(result['notifications']['sent'], int(attempt == 2))
+                self.assertEqual(result['notifications']['sent'], int(attempt == 0))
             smtp.return_value.send_message.assert_called_once()
             message = smtp.return_value.send_message.call_args.args[0]
             self.assertIn('被网站拦截', str(message['Subject']))
@@ -214,10 +214,15 @@ class RunnerTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True), patch.object(sys, 'argv', args), \
                 patch('arcteryx_prices.notifications.load_gmail_config') as load, \
                 patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp, \
-                patch('arcteryx_prices.monitor._fetcher', return_value=quote), contextlib.redirect_stdout(stdout):
+                patch('arcteryx_prices.collector.BatchQuoteCollector.collect',
+                      side_effect=lambda watch, stage='primary': quote(watch)), \
+                patch('arcteryx_prices.collector.build_opener',
+                      side_effect=AssertionError('Offline test must not open a network connection')) as opener, \
+                contextlib.redirect_stdout(stdout):
             main()
         load.assert_not_called()
         smtp.assert_not_called()
+        opener.assert_not_called()
         result = json.loads(stdout.getvalue())
         self.assertTrue(result['dry_run'])
         self.assertTrue(result['collection_persisted'])

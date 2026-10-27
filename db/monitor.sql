@@ -73,5 +73,8 @@ CREATE TABLE IF NOT EXISTS monitor_host_cooldowns (
     host TEXT PRIMARY KEY,
     not_before TEXT NOT NULL,
     http_status INTEGER NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'rate_limited',
+    blocked_since TEXT,
+    consecutive_blocks INTEGER NOT NULL DEFAULT 0
 );

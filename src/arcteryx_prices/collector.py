@@ -530,6 +530,10 @@ class BatchQuoteCollector:
     cache stores at most eight bounded responses (32 MiB total HTML). Callers
     create a new collector per cycle: this is not a persistent price cache and
     cannot manufacture a new observation time from an old response.
+
+    Counters describe page-fetch attempts, including failures, not individual
+    HTTP requests: a page fetch may follow validated redirects. Confirmation
+    fetches are a subset of page_fetches; cache_hits count primary-page reuse.
     """
 
     def __init__(self, max_pages: int = MAX_BATCH_PAGES):
@@ -537,6 +541,9 @@ class BatchQuoteCollector:
             raise ValueError(f'max_pages must be an integer from 1 to {MAX_BATCH_PAGES}')
         self.max_pages = max_pages
         self._pages = OrderedDict()
+        self.page_fetches = 0
+        self.cache_hits = 0
+        self.confirmation_fetches = 0
 
     def __call__(self, watch: dict) -> dict:
         return self.collect(watch)
@@ -547,10 +554,13 @@ class BatchQuoteCollector:
         watch = _validated_watch(watch)
         key = watch['url']
         if stage == 'primary' and key in self._pages:
+            self.cache_hits += 1
             page = self._pages.pop(key)
             self._pages[key] = page
         else:
             try:
+                self.page_fetches += 1
+                self.confirmation_fetches += int(stage == 'confirmation')
                 body, final_url = _read_page(key, watch['market'])
                 stamp = datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')
                 page = (body, final_url, stamp, hashlib.sha256(body).hexdigest())
