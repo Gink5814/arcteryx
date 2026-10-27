@@ -6,11 +6,12 @@
 
 [查看桌面截图](docs/screenshots/dashboard-desktop.png) · [查看手机截图](docs/screenshots/dashboard-mobile.png) · [历史来源页面](docs/screenshots/history-sources.png)
 
-![连接实际工作数据库的前端](docs/screenshots/dashboard-desktop.png)
+![前端截图：此前的试点关注](docs/screenshots/dashboard-desktop.png)
 
 - [美国购买经验与攻略：附来源](docs/north-america-buying-guide.md)
 - [运行、监控规则与实际验证](docs/monitoring.md)
 - [Gmail 邮件提醒与电脑定时检查](docs/email-alerts.md)
+- [Gamma MX / Sidewinder：男款 XL、XXL 的可导入关注与来源](docs/gamma-mx-sidewinder.md)
 - [价格数据库和三项历史指标](docs/database.md)
 - [首轮工具调研](docs/research.md)
 - [五个成熟开源项目的源码比较与采集优化](docs/open-source-monitoring-review.md)
@@ -39,6 +40,8 @@ Windows PowerShell 中把 `python3` 换成 `py -3 -X utf8`。`scripts/run-monito
 python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --dry-run
 ```
 
+要直接关注男款 Gamma MX（无帽及连帽）和 Sidewinder 的 XL / XXL，可先执行 `watch-import examples/watches.gamma-mx-sidewinder.us.json`。这份[来源已核实的清单](docs/gamma-mx-sidewinder.md)含 20 个具体颜色尺码，设为每 15 分钟、已观测新低提醒；只导入配置，价格从你的首次真实采集开始记录。
+
 **试运行会真实抓取页面并保存价格、检查及站内提醒，只预览邮件而不发送。** 它不是数据库只读模式；返回结果中的 `collection_persisted: true` 会标明采集已保存。尚未添加启用的关注时会明确提示，不会假装正在盯价。
 
 正式邮件发送及定时设置见下节。去掉 `--no-worker` 的网页服务也可持续运行检查调度器，但不会自行发邮件。自己的电脑关机、休眠或断网期间不会正常监控。
@@ -61,9 +64,9 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 
 ## 已验证与限制
 
-已真实验证美国官网、美国 Outlet 和 REI 的明确变体。当前工作库保留 5 个美国试点关注，覆盖现货与缺货状态；它们用于验证功能，不代表用户已经选择这些款式。旧版建立的 1 个加拿大关注已停用并从产品界面隐藏，已有记录保留供审计。
+已真实验证美国官网、美国 Outlet 和 REI 的明确变体。当前工作库启用 20 个男款 Gamma MX / Sidewinder 的 XL、XXL 关注，每 15 分钟检查；[首轮真实检查](research/gamma-mx-sidewinder-live-validation.json)全部成功，5 个页面共用初次读取。此前 5 个美国试点已暂停，已有记录保留。旧版建立的 1 个加拿大关注继续停用并从产品界面隐藏。
 
-美国关注中包含 2 个 REI 试点。已将 12 条 2025—2026 年的真实美国历史促销报道导入工作库的独立参考表，也可用下方命令在新库重建。报道的原帖日期、价格、条件和来源均保留，但不冒充零售商已核验的具体尺码库存。[此前入库与监控验证](research/retailer-history-live-validation.json) 保留当时的完整快照，历史文件中的加拿大记录不表示当前支持范围。
+当前启用的关注都来自已核实的 REI 页面，官网与 Outlet 的对应款式仍待核实。已将 12 条 2025—2026 年的真实美国历史促销报道导入工作库的独立参考表，也可用下方命令在新库重建。报道的原帖日期、价格、条件和来源均保留，但不冒充零售商已核验的具体尺码库存。[此前入库与监控验证](research/retailer-history-live-validation.json) 保留当时的完整快照，历史文件中的加拿大记录不表示当前支持范围。
 
 指标记录从实际采集开始，没有补造历史。365 天最低价、90 天每日最低价均值会同时显示实际覆盖天数。历史报道未通过精确变体存档核验，不计入这些指标；本次尚未取得合格的旧变体存档。未来价格、库存和页面结构可能变化，具体快照见验证记录。
 
@@ -76,8 +79,11 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 python3 scripts/run-monitor.py discover https://arcteryx.com/us/en/shop/mens/beta-jacket-0868
 python3 scripts/run-monitor.py discover https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
 
-# 添加一个示例真实商品关注（价格会实时读取；重复关注会被拒绝）
+# 添加一个示例真实商品关注（之后检查时读取价格；重复关注会被拒绝）
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-add examples/watch.us.json
+
+# 批量添加实际款式；重复导入保留已有设置，不导入价格。
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-import examples/watches.gamma-mx-sidewinder.us.json
 
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-list
 # 将自己的关注 1 改为每 15 分钟检查；先用 watch-list 确认编号。

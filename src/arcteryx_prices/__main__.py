@@ -39,6 +39,8 @@ def main():
     commands.add_parser('alerts', help='List confirmed in-app alerts (no external messages sent)')
     watch_add = commands.add_parser('watch-add', help='Add a watch from a JSON object')
     watch_add.add_argument('json_file')
+    watch_import = commands.add_parser('watch-import', help='Atomically add a JSON array of watches; matching watches keep their settings')
+    watch_import.add_argument('json_file')
     watch_update = commands.add_parser('watch-update', help='Change a watch’s enabled state or rule')
     watch_update.add_argument('watch_id', type=int)
     watch_update.add_argument('json_file')
@@ -91,7 +93,7 @@ def main():
             except KeyboardInterrupt:
                 stop.set()
             return
-        from .monitor import (check_watch, create_watch, initialize_monitor,
+        from .monitor import (check_watch, create_watch, import_watches, initialize_monitor,
                               list_alerts, list_watches, run_due, update_watch,
                               discover_for_monitor)
         connection = initialize_monitor(args.db)
@@ -123,6 +125,8 @@ def main():
                              retailer_key=args.retailer_key, offer_key=args.offer_key)
         elif args.command == 'watch-add':
             result = create_watch(connection, load_json(args.json_file))
+        elif args.command == 'watch-import':
+            result = import_watches(connection, load_json(args.json_file))
         elif args.command == 'watch-update':
             result = update_watch(connection, args.watch_id, load_json(args.json_file))
         elif args.command == 'watch-list':

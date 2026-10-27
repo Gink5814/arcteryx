@@ -12,6 +12,8 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 serve --no-worker
 
 Windows 可将 `python3` 改为 `py -3 -X utf8`。`--no-worker` 让网页只负责管理关注，检查交给单次命令。默认检查间隔是 60 分钟；需要更快时，在新增关注或“设置提醒”的频率选项中选择 15 分钟。商品尚未选定时可以先完成试运行或邮件配置；仓库中的 Beta 示例和工作库试点都不代表你的购买需求。
 
+男款 Gamma MX 与 Sidewinder 的 XL / XXL 已另备[批量导入清单与来源](gamma-mx-sidewinder.md)，可一次加入 20 个关注，预设为每 15 分钟、已观测新低提醒。导入不会自动停用已有的示例或其他关注。
+
 ## 2. 配置 Gmail
 
 在 Google 账号开启两步验证后，创建一个仅供此程序使用的 [应用专用密码](https://support.google.com/accounts/answer/185833)。部分组织账号或高级保护账号不提供此功能；这种情况下当前 SMTP 方式不可用。不要填写 Google 账号的日常登录密码，也不要把应用专用密码发到聊天或提交到 Git。

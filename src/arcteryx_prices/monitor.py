@@ -263,7 +263,7 @@ def _public(connection, row, now=None):
     return result
 
 
-def create_watch(connection, payload):
+def _watch_values(payload):
     if not isinstance(payload, dict):
         raise ValueError('watch must be an object')
     allowed = {'url', 'sku', 'color', 'size', 'label', 'target_price_minor', 'rule', 'interval_minutes'}
@@ -288,15 +288,50 @@ def create_watch(connection, payload):
         'product_key': f'{product_prefix}:{digest}', 'variant_key': f'variant:{digest}',
         'offer_key': f'offer:{digest}', 'created_at': stamp, 'updated_at': stamp,
     } | settings
+    return values
+
+
+def _insert_watch(connection, values):
+    return connection.execute(
+        f"INSERT INTO monitor_watches ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",
+        tuple(values.values()),
+    ).lastrowid
+
+
+def create_watch(connection, payload):
+    values = _watch_values(payload)
     try:
         with connection:
-            cursor = connection.execute(
-                f"INSERT INTO monitor_watches ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",
-                tuple(values.values()),
-            )
+            watch_id = _insert_watch(connection, values)
     except sqlite3.IntegrityError as exc:
         raise ValueError('this retailer URL and SKU are already watched') from exc
-    return _public(connection, _row(connection, cursor.lastrowid))
+    return _public(connection, _row(connection, watch_id))
+
+
+def import_watches(connection, payload):
+    """Atomically add a portable watch list without replacing existing settings."""
+    if not isinstance(payload, list):
+        raise ValueError('watch import must be an array of watch objects')
+    result = {'created': 0, 'skipped': 0, 'watch_ids': []}
+    with connection:
+        connection.execute('BEGIN IMMEDIATE')
+        for index, item in enumerate(payload):
+            try:
+                values = _watch_values(item)
+                existing = connection.execute('SELECT * FROM monitor_watches WHERE url=? AND sku=?',
+                                              (values['url'], values['sku'])).fetchone()
+                if existing:
+                    if any(existing[key] != values[key] for key in ('color', 'size', 'market', 'currency')):
+                        raise ValueError('existing URL and SKU have a different variant identity')
+                    watch_id = existing['id']
+                    result['skipped'] += 1
+                else:
+                    watch_id = _insert_watch(connection, values)
+                    result['created'] += 1
+                result['watch_ids'].append(watch_id)
+            except ValueError as exc:
+                raise ValueError(f'watch item {index + 1}: {exc}') from exc
+    return result
 
 
 def list_watches(connection, now=None):

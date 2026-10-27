@@ -1,0 +1,44 @@
+{
+  "scope": "US/USD; men’s Gamma MX Jacket, Gamma MX Hoody and current Sidewinder Jacket; XL/XXL; discovered colors",
+  "method": "Live run_once dry-run, using the production collector and real HTTP responses; read_page wrapper counted calls without replacing responses.",
+  "capture_started_at": "2026-10-27T18:07:30.969975Z",
+  "capture_finished_at": "2026-10-27T18:07:33.549601Z",
+  "preset": "examples/watches.gamma-mx-sidewinder.us.json",
+  "result": {
+    "status": "ok",
+    "dry_run": true,
+    "collection_persisted": true,
+    "enabled_watches": 20,
+    "checked": 20,
+    "skipped": 0,
+    "alerts_created": 0,
+    "unhealthy_watches": [],
+    "actual_page_reads": 5,
+    "email_sent": 0,
+    "exit_code": 0
+  },
+  "in_stock_variants": 17,
+  "out_of_stock_variants": 3,
+  "source_urls": [
+    "https://www.rei.com/product/C11803/arcteryx-gamma-mx-hoody-mens",
+    "https://www.rei.com/product/C11804/arcteryx-gamma-mx-jacket-mens",
+    "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
+    "https://www.rei.com/product/247526/arcteryx-gamma-mx-jacket-mens",
+    "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens"
+  ],
+  "database": {
+    "observations_before": 91,
+    "observations_after": 111,
+    "new_observations": 20,
+    "existing_historical_references_preserved": 12,
+    "prior_US_pilot_watches_paused": 5,
+    "legacy_CA_watch_stays_paused": true
+  },
+  "limitations": [
+    "Current snapshots are not historical all-time or 365-day lows. No prior prices were backfilled.",
+    "First eligible observations establish baselines; out-of-stock observations do not enter purchasable-price metrics.",
+    "Sidewinder is the current 25th-anniversary rerelease, not an old AR/SV model.",
+    "Only the listed REI pages are covered; official/Outlet equivalents remain unverified.",
+    "No Gmail settings, real mail delivery or Windows scheduled task were configured by this run."
+  ]
+}
