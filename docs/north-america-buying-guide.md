@@ -1,6 +1,6 @@
 # 在美国买始祖鸟：先选对，再等值得买的价格
 
-政策核对日期：2026-10-26（America/Denver）。适用范围：美国的个人购买，价格以 USD 计。本页现按美国范围整理；保留原文件名以兼容已有链接。本文综合官方政策、官网刊登的用户评价和已核实的开源监控工具，**不是作者亲身购物记录**；当前标价是访问时的快照，政策与库存需在下单前再次确认。
+政策核对日期：2026-10-26；提醒渠道补充核对：2026-10-27（均为 America/Denver）。适用范围：美国的个人购买，价格以 USD 计。本页现按美国范围整理；保留原文件名以兼容已有链接。本文综合官方政策、官网刊登的用户评价和已核实的开源监控工具，**不是作者亲身购物记录**；当前标价是访问时的快照，政策与库存需在下单前再次确认。
 
 买始祖鸟之前，最有用的准备是写下一张小清单：做什么活动、需要哪一款和哪一代、能穿什么尺码、能接受哪些颜色、最多花多少钱。接下来比较的是这张清单对应的商品，而不只是网页上的折扣百分比。
 
@@ -67,9 +67,25 @@
 
 下单前最后检查：**用途合适、版本匹配、颜色尺码合身、实际有货、币种明确、总价可接受、退换条件看过、销售方核实过。** 满足这些条件的价格，才是对自己有意义的好价。
 
+## 7. 用订阅发现活动，用监控盯具体尺码
+
+感恩节前可以采用两层安排：通过商家邮件和折扣信息源发现整站活动，再让本仓库每 60 分钟检查自己选定的美国商品、颜色和尺码。邮件中的活动也可能来自本仓库尚未接入的商家。订阅渠道不会自动把报价写入本地数据库，报道价格也不等于已核验的尺码库存。
+
+| 渠道 | 建议设置与核实范围 |
+| --- | --- |
+| Arc’teryx 与美国 Outlet | 两站页脚均有邮件订阅入口，文字明确包含新品、优惠与活动信息。具体缺货尺码页面**若提供**到货提醒，可另外登记；本次读取的 Outlet 商品页未核实该功能，不能保证所有页面都有，也不能证明它一定比轮询快。[^arc-newsletter] |
+| REI | 订阅官方邮件；已有会员可同时检查账户中的权益与奖励通知。当前邮件欢迎券仅适用于 **REI Co-op 自有品牌**，不是 Arc’teryx 通用折扣。会员奖励通知也可通过邮寄或账户查看，并非只靠邮件和 App；每次促销仍需核对品牌、商品和会员限制。[^rei-email][^rei-membership] |
+| Backcountry、evo | Backcountry 页脚已核实促销邮件入口。可另外在 [evo 官网](https://www.evo.com/)查找订阅设置；本次访问受限，未核实其当前入口、优惠条件或 Arc’teryx 库存。[^backcountry-email] |
+| Slickdeals | 在 [Deal Alerts](https://slickdeals.net/deal-alerts/) 分别设置 `arcteryx`、`arc'teryx`；选定款式后再加 `atom sv` 等具体词。官方界面支持关键词、商店、品类或品牌，以及邮件、手机推送、即时或每日提醒。它匹配站内收录的线索，不保证覆盖全网所有店铺。[^slickdeals-alerts] |
+| Dealmoon | 可在[美国站](https://www.dealmoon.com/)或其应用查找始祖鸟品牌信息；是否提供关注和推送，以当前界面为准。本次访问受限，未核实具体操作路径，不承诺折扣都会收录。 |
+| Google 购物 | 搜索已确定的商品；若账号与商品页面显示“追踪价格”，可作为补充，并按 [Google 购物帮助](https://support.google.com/googleshopping/)检查通知设置。本次帮助页访问受限，未验证当前账号、设备与商品的可用范围，不能保证所有商品都支持跨店追踪。 |
+| Reddit | [r/arcteryx](https://www.reddit.com/r/arcteryx/) 可保留为人工查阅入口。本次只取得页面外壳，未读到帖子；社区帖子仍需核对发布日期、美国销售链接和结账条件，不能直接当作当前有效优惠。 |
+
+**我们的建议：**先订阅常用商家，加一组 Slickdeals 品牌提醒；其他渠道按噪音多少逐步增加。收到促销后回到零售商页面核对型号、颜色、尺码和结账价。现有监控保留默认 60 分钟间隔，在 Windows 电脑开机、联网且未休眠时运行；[Gmail 与定时任务设置](email-alerts.md)独立于上述订阅。商品尚未选定时，先收集活动信息，不把仓库试点关注当成自己的购买清单。
+
 ## 来源与证据边界
 
-以下页面均于 2026-10-26（America/Denver）实际读取；机器可读的状态、时间及证据摘录保存在 [buying-guide-sources.json](../research/buying-guide-sources.json)，该文件保留最初调研的完整审计记录。用户评价由品牌官网刊登，未独立验证购买身份，本文仅作具名标题和日期对应的个案使用。首轮受阻的社区访问未作为“社区共识”的依据；后续取得的美国 Slickdeals 促销报道见 [历史来源研究](history-source-research.md)，其证据等级与官方政策不同。政策以购买时适用条款为准。
+购买政策和评价来源于 2026-10-26（America/Denver）的读取；第 7 节提醒渠道另于 2026-10-27 核对，并逐项注明未能读取或验证的部分。机器可读的状态、时间及证据摘录保存在 [buying-guide-sources.json](../research/buying-guide-sources.json)，该文件保留最初调研的完整审计记录。用户评价由品牌官网刊登，未独立验证购买身份，本文仅作具名标题和日期对应的个案使用。首轮受阻的社区访问未作为“社区共识”的依据；后续取得的美国 Slickdeals 促销报道见 [历史来源研究](history-source-research.md)，其证据等级与官方政策不同。政策以购买时适用条款为准。
 
 [^terms-us]: [Arc’teryx 美国销售条款：Return and Refund、价格与税费](https://arcteryx.com/us/en/help/terms-and-conditions)。
 [^faq-us]: [Arc’teryx 美国 General FAQ](https://arcteryx.com/us/en/help/faq)。
@@ -82,3 +98,8 @@
 [^fit-review]: [《Perfect shell》，2026-10-19，官网用户评价 ID 185624915](https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062#185624915)。评价标识来自商品页结构化数据，链接可能只定位到商品页，需在评价区查找标题。
 [^delivery-review]: [《Review》，2026-10-14，官网用户评价 ID 185067024](https://arcteryx.com/us/en/shop/mens/beta-ar-jacket-1062#185067024)。同上，用户个案不代表发生概率。
 [^monitor]: [arcteryx-outlet-tracker 实现：覆盖保存最新库存](https://github.com/lethalgem/arcteryx-outlet-tracker/blob/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/src/inventory.ts)；[README：监控与提醒功能](https://github.com/lethalgem/arcteryx-outlet-tracker/blob/1b8a4708223e1710c2dadd917ac7fc4413fba5a1/README.md)。
+[^arc-newsletter]: [Arc’teryx 美国官网页脚邮件入口](https://arcteryx.com/us/en)；[美国 Outlet 页脚邮件入口](https://outlet.arcteryx.com/us/en/help/faq)。两者均明确列出 product drops、exclusive offers、events；本次未核实所有缺货商品的到货提醒。
+[^rei-email]: [REI 官方邮件订阅与欢迎券条件](https://www.rei.com/help/rei-email-subscription)。欢迎券注明适用于 one full-price REI Co-op brand item，不能套用于 Arc’teryx。
+[^rei-membership]: [REI 会员权益与奖励通知说明](https://www.rei.com/membership)。说明包含 mail、email 和 REI.com membership account；年度奖励有适用购买条件。
+[^backcountry-email]: [Backcountry 官网页脚](https://www.backcountry.com/)，Sign Up for Promotional Emails & Get Exclusive Offers。
+[^slickdeals-alerts]: [Slickdeals 官方 Deal Alerts 设置页](https://slickdeals.net/deal-alerts/)。本次读取到自定义关键词/商店/品类/品牌、Email、Mobile Push Notification、Instant/Daily 设置；未登录或创建提醒。

@@ -427,5 +427,198 @@
     "Displayed prices are a single-time example, not historical lows or cross-border landed-cost quotes.",
     "Some returns URLs responded HTTP 200 with only a My Account app shell; return claims instead use the readable Sales Terms.",
     "No specific cross-border duty rates, exemptions or retailer-specific return periods asserted."
-  ]
+  ],
+  "current_article_scope": [
+    "US/USD"
+  ],
+  "notification_channels_review": {
+    "research_date_local": "2026-10-27",
+    "research_timezone": "America/Denver",
+    "scope": [
+      "US/USD"
+    ],
+    "method": "Read public first-party subscription and alert pages with inherited network/TLS configuration. No login, account creation, email signup, notification subscription, or messages sent. Existing historical research above remains unchanged.",
+    "sources": [
+      {
+        "id": "arc-email",
+        "url": "https://arcteryx.com/us/en",
+        "retrieved_at_utc": "2026-10-27T17:04:14.504728+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://arcteryx.com/us/en",
+        "status": "verified_source_read",
+        "sha256": "2a6cb7b0f59ddece3243fafa9cd1559a842af7f4df43b1bdcbcc65ee556f75c3",
+        "response_bytes": 486326,
+        "source_kind": "official_subscription_page",
+        "evidence_excerpts": [
+          "Receive updates on product drops, exclusive offers, events, and more - delivered right to your inbox."
+        ],
+        "limitations": "Footer email subscription verified; no guarantee of advance access or variant restock notifications."
+      },
+      {
+        "id": "outlet-alerts",
+        "url": "https://outlet.arcteryx.com/us/en/help/faq",
+        "retrieved_at_utc": "2026-10-27T17:04:14.505352+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://outlet.arcteryx.com/us/en/help/faq",
+        "status": "verified_source_read",
+        "sha256": "7ac69bdc44ce97c7a32a1ed51910e1020f75d795990806bd3fa035ee18c6c80d",
+        "response_bytes": 344177,
+        "source_kind": "official_subscription_page",
+        "evidence_excerpts": [
+          "Receive updates on product drops, exclusive offers, events, and more - delivered right to your inbox."
+        ],
+        "limitations": "Outlet footer email subscription verified; no general restock-alert guarantee."
+      },
+      {
+        "id": "rei-email",
+        "url": "https://www.rei.com/email/sign-up",
+        "retrieved_at_utc": "2026-10-27T17:04:14.505788+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://www.rei.com/help/rei-email-subscription",
+        "status": "verified_source_read",
+        "sha256": "041be8a63e3a671037b88b14835a72d6c3bd597d05e3a3d95bfe1316880575c2",
+        "response_bytes": 69631,
+        "source_kind": "official_subscription_policy",
+        "evidence_excerpts": [
+          "Sign up for email to keep updated on co-op offers, events & cool new gear.",
+          "15% off one full-price REI Co-op brand item"
+        ],
+        "limitations": "Welcome coupon is for REI Co-op brand, not a general Arc’teryx discount."
+      },
+      {
+        "id": "rei-membership",
+        "url": "https://www.rei.com/membership",
+        "retrieved_at_utc": "2026-10-27T17:05:00.753141+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://www.rei.com/membership",
+        "status": "verified_source_read",
+        "sha256": "5a8828ecaf3479ac5ddae1938c016aa98a5e5325402564038bf1a9f35eaf949a",
+        "response_bytes": 210992,
+        "source_kind": "official_membership_policy",
+        "evidence_excerpts": [
+          "Co-op Member Reward notices are sent out via mail or email by March for the prior calendar year.",
+          "via mail, email, or via their REI.com membership account"
+        ],
+        "limitations": "Rewards are not notified only through email/app; eligibility restrictions apply."
+      },
+      {
+        "id": "backcountry-email",
+        "url": "https://www.backcountry.com/",
+        "retrieved_at_utc": "2026-10-27T17:04:14.506161+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://www.backcountry.com/",
+        "status": "verified_source_read",
+        "sha256": "95f1275094be1632afe859b4e85d0beacc5662f20385ff371af44ee84f274a55",
+        "response_bytes": 1383658,
+        "source_kind": "official_subscription_page",
+        "evidence_excerpts": [
+          "Sign Up for Promotional Emails & Get Exclusive Offers"
+        ],
+        "limitations": "Email entry verified; do not infer brand eligibility for coupons or current Arc’teryx inventory."
+      },
+      {
+        "id": "slickdeals-alerts-confirmed",
+        "url": "https://slickdeals.net/deal-alerts/",
+        "retrieved_at_utc": "2026-10-27T17:05:46.533981+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://slickdeals.net/deal-alerts/",
+        "status": "verified_source_read",
+        "sha256": "961815eb9c7d74bb4c292b032b65f28ededa69961475437a0fc337f1fd744ce3",
+        "response_bytes": 687050,
+        "source_kind": "platform_alert_settings",
+        "evidence_excerpts": [
+          "Keyword, Store, Category and/or Brand",
+          "Email, Mobile Push Notification",
+          "Instant Daily"
+        ],
+        "limitations": "Configurable alert UI verified without login or creating alerts; coverage is limited to indexed community content."
+      },
+      {
+        "id": "arc-variant-alert",
+        "url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+        "retrieved_at_utc": "2026-10-27T17:05:00.753554+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://outlet.arcteryx.com/us/en/shop/mens/alpha-sl-jacket-0287",
+        "status": "verified_source_read",
+        "sha256": "92e094f7b9ea846b83dc74c9ea082e47173709e08077ddc9c23c942ab6157e6e",
+        "response_bytes": 438924,
+        "source_kind": "official_product_page",
+        "evidence_excerpts": [],
+        "limitations": "No variant restock email control verified in the fetched page; absence in this static response does not prove the interactive page never offers one."
+      },
+      {
+        "id": "evo-email",
+        "url": "https://www.evo.com/",
+        "retrieved_at_utc": "2026-10-27T17:04:14.506506+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "status": "not_verified_access_failed",
+        "http_status": null,
+        "error_type": "URLError",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "source_kind": "suggested_channel_not_verified",
+        "limitations": "Proxy CONNECT 403 prevented reading; listing an entry point is not verification of current subscription features or coverage."
+      },
+      {
+        "id": "dealmoon-follow",
+        "url": "https://www.dealmoon.com/",
+        "retrieved_at_utc": "2026-10-27T17:04:14.510690+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "status": "not_verified_access_failed",
+        "http_status": null,
+        "error_type": "URLError",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "source_kind": "suggested_channel_not_verified",
+        "limitations": "Proxy CONNECT 403 prevented reading; listing an entry point is not verification of current subscription features or coverage."
+      },
+      {
+        "id": "google-track",
+        "url": "https://support.google.com/googleshopping/answer/9734157?hl=en",
+        "retrieved_at_utc": "2026-10-27T17:04:14.516564+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "status": "not_verified_access_failed",
+        "http_status": null,
+        "error_type": "URLError",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "source_kind": "suggested_channel_not_verified",
+        "limitations": "Proxy CONNECT 403 prevented reading; listing an entry point is not verification of current subscription features or coverage.",
+        "suggested_entry_url": "https://support.google.com/googleshopping/"
+      },
+      {
+        "id": "reddit-community",
+        "url": "https://www.reddit.com/r/arcteryx/",
+        "retrieved_at_utc": "2026-10-27T17:04:14.536232+00:00",
+        "accessed_date_local": "2026-10-27",
+        "market": "US",
+        "http_status": 200,
+        "final_url": "https://www.reddit.com/r/arcteryx/",
+        "status": "not_verified_content_shell",
+        "sha256": "259c3417752047c34136eb1e83c539d849cec641f81c906f1890c5d7aae0cd3a",
+        "response_bytes": 8417,
+        "source_kind": "suggested_channel_not_verified",
+        "limitations": "HTTP 200 rendered text was only Reddit; no posts or alert features verified."
+      }
+    ],
+    "limitations": [
+      "Merchant subscription pages do not establish the dates or discounts of upcoming Thanksgiving promotions.",
+      "No proof that all official/Outlet out-of-stock variants offer email restock alerts or that such alerts are faster than polling.",
+      "No claim of complete retailer coverage, live stock validation, or current Google/Dealmoon/evo account-specific feature availability."
+    ]
+  }
 }
