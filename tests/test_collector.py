@@ -128,7 +128,7 @@ class CollectorTests(unittest.TestCase):
             self.assert_status('condition_unknown', _parse_quote, html(node), WATCH)
 
     def test_parent_inventory_not_inherited_unknown_stock_fails_closed(self):
-        for availability in (None, 'InStoreOnly', 'UnrecognizedAvailability'):
+        for availability in (None, 'UnrecognizedAvailability'):
             node = product(availability='https://schema.org/InStock')
             node['offers']['availability'] = availability
             self.assert_status('availability_unknown', _parse_quote, html(node), WATCH)
@@ -137,7 +137,7 @@ class CollectorTests(unittest.TestCase):
         for stock, expected in (
             ('LimitedAvailability', 'in_stock'), ('OnlineOnly', 'in_stock'),
             ('PreOrder', 'out_of_stock'), ('BackOrder', 'out_of_stock'),
-            ('Discontinued', 'out_of_stock'),
+            ('Discontinued', 'out_of_stock'), ('InStoreOnly', 'out_of_stock'),
         ):
             for prefix in ('', 'http://schema.org/', 'https://schema.org/'):
                 with self.subTest(stock=stock, prefix=prefix):

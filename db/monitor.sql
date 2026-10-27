@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS monitor_watches (
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
     rule TEXT NOT NULL CHECK (rule IN ('target','new_low','restock')),
     target_price_minor INTEGER,
-    interval_minutes INTEGER NOT NULL CHECK (interval_minutes BETWEEN 30 AND 1440),
+    interval_minutes INTEGER NOT NULL CHECK (interval_minutes BETWEEN 15 AND 1440),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     last_checked_at TEXT,
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS monitor_alerts (
 CREATE INDEX IF NOT EXISTS monitor_due ON monitor_watches(enabled,next_due_at);
 CREATE INDEX IF NOT EXISTS monitor_checks_watch ON monitor_checks(watch_id,id);
 
--- Shared across workers and manual/discovery requests. A server's not-before
--- Within the 24-hour retry cap, another failure cannot shorten the deadline.
+-- Shared across workers and manual/discovery requests. Within the 24-hour retry
+-- cap, another failure cannot shorten the server's not-before deadline.
 CREATE TABLE IF NOT EXISTS monitor_host_cooldowns (
     host TEXT PRIMARY KEY,
     not_before TEXT NOT NULL,

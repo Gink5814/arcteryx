@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 
 from arcteryx_prices.database import canonical_time
 from arcteryx_prices.monitor import check_watch, create_watch, initialize_monitor
-from arcteryx_prices.notifications import GmailConfig, deliver_notifications, load_gmail_config, send_test_email
+from arcteryx_prices.notifications import GmailConfig, _message, deliver_notifications, load_gmail_config, send_test_email
 
 
 BASE = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
@@ -290,6 +290,38 @@ class NotificationTest(unittest.TestCase):
         before = self.ledger()
         self.deliver(dry_run=True)
         self.assertEqual(self.ledger(), before)
+
+    def test_preview_without_recipient_needs_no_mailbox_and_never_changes_delivery_history(self):
+        alert = self.alert()['alert']
+        preview = deliver_notifications(self.db, dry_run=True, now=BASE)
+        self.assertEqual(preview['would_send'], 1)
+        self.assertFalse(preview['recipient_configured'])
+        self.assertFalse(preview['delivery_history_applied'])
+        self.assertIn('No recipient configured', preview['message'])
+        self.assertIsNone(self.db.execute("SELECT 1 FROM sqlite_master WHERE name='notification_deliveries'").fetchone())
+        self.factory.assert_not_called()
+        self.assertEqual(self.deliver()['sent'], 1)
+        before = self.ledger()
+        generic = deliver_notifications(self.db, dry_run=True, now=BASE)
+        self.assertEqual(generic['would_send'], 1, 'without a recipient, delivery history cannot suppress previewed events')
+        targeted = self.deliver(dry_run=True)
+        self.assertTrue(targeted['delivery_history_applied'])
+        self.assertEqual(targeted['would_send'], 0)
+        self.assertEqual(self.ledger(), before)
+        self.assertEqual(self.factory.call_count, 1)
+        watch = self.db.execute('SELECT * FROM monitor_watches WHERE id=?', (alert['watch_id'],)).fetchone()
+        message = _message(dict(watch) | alert | {'kind': 'price', 'event_key': f"price:{alert['id']}"})
+        self.assertIsNone(message['From'])
+        self.assertIsNone(message['To'])
+        self.assertIsNone(message['Message-ID'])
+        self.assertIn('USD 249.83', message.get_content())
+
+    def test_real_delivery_rejects_missing_configuration_without_creating_ledger(self):
+        self.alert()
+        with self.assertRaisesRegex(ValueError, 'Google app password'):
+            deliver_notifications(self.db, now=BASE)
+        self.factory.assert_not_called()
+        self.assertIsNone(self.db.execute("SELECT 1 FROM sqlite_master WHERE name='notification_deliveries'").fetchone())
 
     def test_paused_and_legacy_canadian_watches_are_excluded(self):
         first = self.watch('paused')

@@ -118,6 +118,7 @@ h1>span { color:#6f8d54; }
 .watch-bottom { border-top:1px solid #f0f1e9; padding-top:13px; display:flex; flex-direction:column; gap:11px; }
 .watch-health { font-size:11px; color:#65735a; line-height:1.9; }
 .watch-health .health-warning { color:var(--amber); }
+.watch-check-detail { overflow-wrap:anywhere; }
 .watch-retry { display:flex; flex-direction:column; gap:2px; margin-top:7px; padding:8px 10px; border-radius:5px; background:#f7f3e8; color:#796035; overflow-wrap:anywhere; }
 .watch-retry strong { font-size:11px; font-weight:600; }
 .watch-retry .retry-detail { color:#756d5d; font-size:10px; }

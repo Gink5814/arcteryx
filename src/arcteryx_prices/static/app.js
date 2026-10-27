@@ -481,6 +481,10 @@ function watchCard(watch) {
   const retryAt = watch.enabled ? retryDeadline(watch) : null;
   const failures = Number.isSafeInteger(watch.consecutive_failures) && watch.consecutive_failures > 0 ? watch.consecutive_failures : 0;
   if (failures) health.append(node("div", "health-warning", `连续 ${failures} 次检查未成功`));
+  const failureDetail = connected && watch.enabled && !watch.checking && !pending.has(`check-${watch.id}`) &&
+    typeof watch.status === "string" && !["ok", "never_checked", "pending", "checking", "paused", "busy", "not_due"].includes(watch.status) &&
+    typeof watch.last_error === "string" ? watch.last_error.slice(0, 500).trim() : "";
+  if (failureDetail) health.append(node("div", "watch-check-detail health-warning", `检查详情：${failureDetail}`));
   if (retryAt) {
     const retry = node("div", "watch-retry");
     retry.append(node("strong", "", "已暂缓检查"),

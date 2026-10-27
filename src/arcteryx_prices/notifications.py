@@ -115,7 +115,7 @@ def _events(connection):
                        'watch_id': watch['id'], 'created_at': watch['last_checked_at'] or watch['created_at']}
 
 
-def _message(event, config):
+def _message(event, config=None):
     label = ' '.join(event['label'].split())
     identity = (f"Product: {event['label']}\nRetailer: {event['retailer_name']}\n"
                 f"Color: {event['color']}\nSize: {event['size']}\nSKU: {event['sku']}\n")
@@ -147,12 +147,13 @@ def _message(event, config):
                      'Open the product link in your browser to check access. '
                      'The monitor will use the next scheduled attempt shown above.\n')
     message = EmailMessage()
-    message['From'] = config.user
-    message['To'] = config.recipient
     message['Subject'] = subject
     message['Date'] = format_datetime(parse_time(event['created_at']))
-    digest = hashlib.sha256((event['event_key'] + '\n' + config.recipient).encode()).hexdigest()
-    message['Message-ID'] = f'<arcteryx-{digest}@{config.user.split("@", 1)[1]}>'
+    if config is not None:
+        message['From'] = config.user
+        message['To'] = config.recipient
+        digest = hashlib.sha256((event['event_key'] + '\n' + config.recipient).encode()).hexdigest()
+        message['Message-ID'] = f'<arcteryx-{digest}@{config.user.split("@", 1)[1]}>'
     message.set_content(body)
     return message
 
@@ -206,27 +207,33 @@ def send_test_email(config):
             'message': 'Gmail accepted the configuration test. Check the recipient inbox and spam folder; SMTP acceptance does not prove inbox delivery.'}
 
 
-def deliver_notifications(connection, config, *, dry_run=False, now=None):
+def deliver_notifications(connection, config=None, *, dry_run=False, now=None):
     """Deliver eligible events; caller must hold the run-once file lock.
 
     Price alerts remain eligible for seven days after confirmation. Pending failures
     retry after 30 minutes, doubling up to 6 hours. Health notices remain eligible
     while that failure episode is active. Dry runs preview only currently due
     messages and do not modify the delivery ledger or contact Gmail.
+    Without a config, previews contain no addresses and cannot apply recipient-
+    specific delivery history. Real delivery always requires a config.
     """
     instant = _instant(now)
     stamp = canonical_time(instant)
-    if not dry_run and not re.fullmatch('[A-Za-z]{16}', config.password):
+    if not dry_run and (config is None or not re.fullmatch('[A-Za-z]{16}', config.password)):
         raise ValueError('A Google app password is required for Gmail delivery')
     has_ledger = connection.execute("SELECT 1 FROM sqlite_master WHERE name='notification_deliveries'").fetchone()
     if not dry_run and not has_ledger:
         connection.executescript(SCHEMA.read_text(encoding='utf-8'))
         has_ledger = True
     deliveries = {row['event_key']: dict(row) for row in connection.execute(
-        'SELECT * FROM notification_deliveries WHERE recipient=?', (config.recipient,))} if has_ledger else {}
+        'SELECT * FROM notification_deliveries WHERE recipient=?', (config.recipient,))} if has_ledger and config is not None else {}
     summary = {'sent': 0, 'failed': 0, 'pending': 0, 'expired': 0, 'skipped': 0, 'would_send': 0, 'errors': []}
     if dry_run:
         summary['previews'] = []
+        summary['recipient_configured'] = config is not None
+        summary['delivery_history_applied'] = config is not None
+        if config is None:
+            summary['message'] = 'No recipient configured: previews include eligible events regardless of prior delivery to any mailbox.'
     for event in _events(connection):
         previous = deliveries.get(event['event_key'])
         if previous and previous['status'] == 'sent':

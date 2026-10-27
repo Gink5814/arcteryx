@@ -1,5 +1,6 @@
 # Replace these absolute paths before saving as your private run-monitor.ps1.
 # Keep the Gmail app password in gmail.env, never in this script.
+# Schedule every 5 minutes; the application checks only watches whose own intervals are due.
 $ErrorActionPreference = 'Stop'
 # Decode Python output and write redirected logs as UTF-8, including on Windows PowerShell 5.1.
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()

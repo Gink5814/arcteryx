@@ -1,6 +1,6 @@
 # 价格数据库与统计口径
 
-采用 SQLite + Python 标准库，不需要数据库服务或外部依赖。当前产品范围仅限 US / USD，已接入美国官网、美国 Outlet、REI 商品页采集和站内提醒，支持离线导入；Keepa、浏览器扩展及外部通知服务尚未接入。运行方式见 [监控说明](monitoring.md)。
+采用 SQLite + Python 标准库，不需要数据库服务或外部依赖。当前产品范围仅限 US / USD，已接入美国官网、美国 Outlet、REI 商品页采集和站内提醒，支持离线导入；配置后可通过单次命令发送 Gmail 邮件。Keepa、浏览器扩展尚未接入。运行方式见 [监控说明](monitoring.md)。
 
 ## 数据模型
 
@@ -18,6 +18,8 @@
 模型、颜色、尺码和季节必须有可信匹配；未知字段不能通过猜测制造精确匹配。`product_key` 应包含必要的款式/性别/版本区分，不以商品标题模糊合并。当前没有自动实体匹配算法。
 
 初始化监控库会停用旧版非美国关注并使其采集锁失效，但不删除关注或价格记录。产品 API、CLI 导入与指标查询仅接受 US / USD；底层 Python 存储函数仍保留旧地区兼容能力，供明确的离线维护使用，不代表应用继续支持加拿大。
+
+关注检查间隔支持 15–1440 分钟，默认 60 分钟。升级时会迁移旧库的 30 分钟下限约束，保留关注身份、历史、检查及通知关联；既有关注不会自动加快。试运行 `run-once --dry-run` 仍将采集结果写入所选数据库，只跳过邮件发送和通知状态更新。
 
 ## 三个指标
 
@@ -51,8 +53,8 @@ average_daily_low_90d = sum(daily_low[d]) / 有观测日期数量
 在仓库根目录：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 init
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 import /path/to/verified-observations.json
+python3 scripts/run-monitor.py --db data/prices.sqlite3 init
+python3 scripts/run-monitor.py --db data/prices.sqlite3 import /path/to/verified-observations.json
 ```
 
 JSON 顶层必须只有 `observations` 数组。完整结构参考 [合成示例](../examples/observations.example.json)，示例中的商品和价格都不是真实数据，不得导入真实库。
@@ -75,8 +77,8 @@ JSON 顶层必须只有 `observations` 数组。完整结构参考 [合成示例
 `import` 是供维护者使用的原始记录导入工具，验证格式和身份一致性，不自动证明来源内容真实。历史报道应使用专门的证据流程：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-import research/historical-price-evidence.json
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-list
+python3 scripts/run-monitor.py --db data/prices.sqlite3 history-import research/historical-price-evidence.json
+python3 scripts/run-monitor.py --db data/prices.sqlite3 history-list
 ```
 
 证据文件使用 `schema_version: 1` 和 `evidence` 数组，存储来源、发布时间/观测日期、时间精度、取得时间、金额、市场、商家、条件、摘要与页面 SHA-256。未知 SKU 或库存保留未知。导入幂等且冲突整批回滚；不会修改实时关注或生成提醒，也不会因文件自报可信而加入价格统计。
@@ -84,7 +86,7 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-list
 只有取得精确时间戳的原零售商 Wayback `id_` 存档后，才可针对现有关注执行：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-backfill \
+python3 scripts/run-monitor.py --db data/prices.sqlite3 history-backfill \
   --evidence-key VERIFIED_ARCHIVE_KEY --watch-id WATCH_ID
 ```
 
@@ -95,7 +97,7 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-backf
 以下占位符须换成真实导入记录的身份：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 metrics \
+python3 scripts/run-monitor.py --db data/prices.sqlite3 metrics \
   --product-key PRODUCT_KEY --variant-key VARIANT_KEY --market US --currency USD
 ```
 
@@ -111,6 +113,6 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 `data/prices.sqlite3` 是当前实例真实工作库，不纳入 Git。`db/schema.sql`、`db/monitor.sql`、`db/history.sql` 和计算代码可重建空库；真实采集数据需要另行备份，不能把 Git 当作价格历史备份。历史参考文件纳入版本管理，可显式导入重建这部分资料。
 
-当前采集器把经过身份、库存和币种验证的事实转换成相同格式，监控表额外保留关注、检查结果与站内提醒。看板启动时会运行到期检查调度器；没有邮件发送服务。每个监控关注使用独立 URL+SKU 身份，尚不自动将不同商户或语言页面合并。
+当前采集器把经过身份、库存和币种验证的事实转换成相同格式，监控表额外保留关注、检查结果与站内提醒。看板默认运行到期检查调度器，`serve --no-worker` 可只管理关注；邮件由 `run-once --notify gmail` 发送，并在 `notification_deliveries` 中保存发送状态。每个监控关注使用独立 URL+SKU 身份，尚不自动将不同商户或语言页面合并。
 
 采集调度状态也持久化：关注的 `consecutive_failures`、`retry_not_before`，检查的 HTTP/重试元数据，以及 `monitor_host_cooldowns` 的来源等待截止时间。它们不参与价格指标，失败和等待不会新增价格观测。迁移为增量列/表修改，保留已有报价、历史来源和停用的旧地区数据。

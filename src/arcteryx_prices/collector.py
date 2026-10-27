@@ -421,7 +421,7 @@ def _quote_from_products(products: list, indexed: dict, watch: dict, observed_at
                     'InStock': 'in_stock', 'LimitedAvailability': 'in_stock', 'OnlineOnly': 'in_stock',
                     'OutOfStock': 'out_of_stock', 'SoldOut': 'out_of_stock',
                     'PreOrder': 'out_of_stock', 'BackOrder': 'out_of_stock',
-                    'Discontinued': 'out_of_stock',
+                    'Discontinued': 'out_of_stock', 'InStoreOnly': 'out_of_stock',
                 }.get(stock)
                 if availability is None:
                     raise CollectorError('availability_unknown', 'Exact offer does not establish current in-stock/out-of-stock status')

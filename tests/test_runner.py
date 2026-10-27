@@ -207,8 +207,73 @@ class RunnerTest(unittest.TestCase):
         run.assert_not_called()
         self.assertFalse(self.path.exists())
 
-    def test_cli_preserves_summary_and_degraded_exit_code(self):
+    def test_credential_free_cli_preview_saves_collection_without_smtp_or_delivery_records(self):
+        self.watch()
+        args = ['arcteryx_prices', '--db', str(self.path), 'run-once', '--dry-run']
+        stdout = io.StringIO()
+        with patch.dict(os.environ, {}, clear=True), patch.object(sys, 'argv', args), \
+                patch('arcteryx_prices.notifications.load_gmail_config') as load, \
+                patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp, \
+                patch('arcteryx_prices.monitor._fetcher', return_value=quote), contextlib.redirect_stdout(stdout):
+            main()
+        load.assert_not_called()
+        smtp.assert_not_called()
+        result = json.loads(stdout.getvalue())
+        self.assertTrue(result['dry_run'])
+        self.assertTrue(result['collection_persisted'])
+        self.assertEqual(result['alerts_created'], 1)
+        self.assertEqual(result['notifications']['would_send'], 1)
+        self.assertFalse(result['notifications']['recipient_configured'])
+        self.assertFalse(result['notifications']['delivery_history_applied'])
+        connection = initialize_monitor(self.path)
+        try:
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0], 1)
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM monitor_alerts').fetchone()[0], 1)
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM monitor_checks').fetchone()[0], 2)
+            self.assertIsNone(connection.execute("SELECT 1 FROM sqlite_master WHERE name='notification_deliveries'").fetchone())
+        finally:
+            connection.close()
+
+    def test_basic_preview_ignores_ambient_mail_configuration(self):
         args = ['arcteryx_prices', '--db', str(self.path), 'run-once', '--notify', 'gmail', '--dry-run']
+        with patch.dict(os.environ, {'ARC_GMAIL_USER': 'invalid-address', 'ARC_GMAIL_APP_PASSWORD': 'secret'}, clear=True), \
+                patch('arcteryx_prices.notifications.load_gmail_config') as load, \
+                patch('arcteryx_prices.runner.run_once', return_value=({'status': 'ok'}, 0)) as run, \
+                patch.object(sys, 'argv', args), contextlib.redirect_stdout(io.StringIO()):
+            main()
+        load.assert_not_called()
+        self.assertIsNone(run.call_args.args[1])
+        self.assertTrue(run.call_args.kwargs['dry_run'])
+
+    def test_real_cycle_requires_explicit_notify_before_settings_or_collection(self):
+        args = ['arcteryx_prices', '--db', str(self.path), 'run-once']
+        stderr = io.StringIO()
+        with patch.object(sys, 'argv', args), patch('arcteryx_prices.notifications.load_gmail_config') as load, \
+                patch('arcteryx_prices.runner.run_once') as run, contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as error:
+                main()
+        self.assertEqual(error.exception.code, 2)
+        self.assertIn('--notify gmail', stderr.getvalue())
+        self.assertIn('--dry-run', stderr.getvalue())
+        load.assert_not_called()
+        run.assert_not_called()
+        self.assertFalse(self.path.exists())
+
+    def test_explicit_preview_file_can_select_recipient_without_a_password(self):
+        file = Path(self.temp.name) / 'preview.env'
+        file.write_text('ARC_GMAIL_USER=sender@example.com\nARC_ALERT_TO=owner@example.com\n')
+        file.chmod(0o600)
+        args = ['arcteryx_prices', '--db', str(self.path), 'run-once', '--dry-run', '--env-file', str(file)]
+        with patch.dict(os.environ, {}, clear=True), patch.object(sys, 'argv', args), \
+                patch('arcteryx_prices.runner.run_once', return_value=({'status': 'ok'}, 0)) as run, \
+                contextlib.redirect_stdout(io.StringIO()):
+            main()
+        config = run.call_args.args[1]
+        self.assertEqual((config.user, config.recipient, config.password),
+                         ('sender@example.com', 'owner@example.com', ''))
+
+    def test_cli_preserves_summary_and_degraded_exit_code(self):
+        args = ['arcteryx_prices', '--db', str(self.path), 'run-once', '--notify', 'gmail', '--dry-run', '--env-file', 'private.env']
         stdout = io.StringIO()
         with patch('arcteryx_prices.notifications.load_gmail_config', return_value=object()) as config, \
                 patch('arcteryx_prices.runner.run_once', return_value=({'status': 'degraded'}, 1)) as run, \
@@ -217,7 +282,7 @@ class RunnerTest(unittest.TestCase):
                 main()
         self.assertEqual(error.exception.code, 1)
         self.assertEqual(json.loads(stdout.getvalue()), {'status': 'degraded'})
-        config.assert_called_once_with(None, require_password=False)
+        config.assert_called_once_with('private.env', require_password=False)
         self.assertTrue(run.call_args.kwargs['dry_run'])
 
     def test_explicit_gmail_test_uses_no_database_or_collection(self):

@@ -45,11 +45,14 @@ def cycle_lock(db_path):
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def run_once(db_path, config, *, force=False, dry_run=False, now=None, fetcher=None):
+def run_once(db_path, config=None, *, force=False, dry_run=False, now=None, fetcher=None):
     """Return a JSON summary and exit status; never start a web server or sleep."""
+    if config is None and not dry_run:
+        raise ValueError('Gmail settings are required for delivery; use dry_run=True for a credential-free preview')
     with cycle_lock(db_path) as acquired:
         if not acquired:
-            return {'status': 'busy', 'message': 'Another run-once cycle holds this database lock.'}, 0
+            return {'status': 'busy', 'collection_persisted': False,
+                    'message': 'Another run-once cycle holds this database lock.'}, 0
         connection = initialize_monitor(db_path)
         try:
             results = run_due(connection, fetcher=fetcher, now=now, force=force)
@@ -62,6 +65,7 @@ def run_once(db_path, config, *, force=False, dry_run=False, now=None, fetcher=N
             result = {
                 'status': 'degraded' if degraded else 'ok',
                 'dry_run': dry_run,
+                'collection_persisted': True,
                 'enabled_watches': len(enabled),
                 'checked': sum(bool(item['checks']) for item in results),
                 'skipped': sum(not item['checks'] for item in results),

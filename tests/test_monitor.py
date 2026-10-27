@@ -328,7 +328,7 @@ class MonitorTest(unittest.TestCase):
         self.assertEqual(self.count('price_observations'), 1)
 
     def test_settings_validation(self):
-        for change in ({'interval_minutes':29},{'interval_minutes':1441},
+        for change in ({'interval_minutes':14},{'interval_minutes':1441},
                        {'interval_minutes':True},{'rule':'invalid'},
                        {'target_price_minor':None},{'target_price_minor':1.5}):
             with self.subTest(change=change), self.assertRaises(ValueError):

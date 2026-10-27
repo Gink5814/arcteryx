@@ -68,6 +68,35 @@ class ResilienceTest(unittest.TestCase):
             self.assertEqual(fetch.call_count, 2, 'a new scheduling cycle must fetch a new page')
         self.assertEqual(self.count('monitor_alerts'), 0)
 
+    def test_fifteen_minute_schedule_checks_only_when_due_and_keeps_default_hourly(self):
+        fast = self.watch(interval_minutes=15)
+        hourly = self.watch('L')
+        self.assertEqual(hourly['interval_minutes'], 60)
+        run_due(self.db, fetcher=lambda w: quote(w), now=BASE)
+        unused = Mock(side_effect=AssertionError('no watch is due before 15 minutes'))
+        self.assertEqual(run_due(self.db, fetcher=unused, now=BASE + timedelta(minutes=14)), [])
+        unused.assert_not_called()
+        at = BASE + timedelta(minutes=15)
+        collected = Mock(side_effect=lambda w: quote(w, at=at))
+        result = run_due(self.db, fetcher=collected, now=at)
+        self.assertEqual([watch['id'] for watch in result], [fast['id']])
+        self.assertEqual(collected.call_count, 1)
+        self.assertEqual(result[0]['next_due_at'], canonical_time(BASE + timedelta(minutes=30)))
+
+    def test_shortening_interval_does_not_bypass_existing_backoff_or_source_cooldown(self):
+        for code, url in ((408, URL), (429, REI)):
+            with self.subTest(code=code):
+                watch = self.watch(url=url)
+                until = BASE + timedelta(hours=2)
+                self.fail(watch, code=code, retry_after=until)
+                changed = update_watch(self.db, watch['id'], {'interval_minutes': 15})
+                self.assertEqual(changed['interval_minutes'], 15)
+                never_fetch = Mock(side_effect=AssertionError('interval changes cannot bypass a wait'))
+                result = check_watch(self.db, watch['id'], fetcher=never_fetch, now=BASE + timedelta(minutes=15))
+                self.assertEqual(result['check_status'], 'backoff' if code == 408 else 'rate_limited')
+                self.assertEqual(result['next_retry_at'], canonical_time(until))
+                never_fetch.assert_not_called()
+
     def test_confirmation_fetch_is_fresh_and_changed_price_cannot_create_alert(self):
         self.watch('M', rule='target', target_price_minor=50000)
         self.watch('L')

@@ -17,6 +17,7 @@ const token = 'synthetic-browser-test-csrf';
 const fixture = { watches: [], alerts: [], historical_evidence: [], offline: false, requests: [], failures: [] };
 const checks = new Map();
 const stamp = '2026-10-26T12:00:00Z';
+const parseRule = 'Offer must explicitly identify new item condition <script>window.syntheticDiagnosticUnsafe=true</script>';
 
 function metrics(price, days = ['2026-10-26']) {
   return {
@@ -122,7 +123,7 @@ async function handler(req, res) {
       } else {
         // Retaining a stale numeric field deliberately checks the UI's guard.
         Object.assign(value, { status: 'parse_error', stale: true, current_price_minor: 12000,
-          last_checked_at: '2026-10-26T13:00:00Z' });
+          last_checked_at: '2026-10-26T13:00:00Z', last_error: parseRule });
       }
       return send(200, value);
     }
@@ -158,6 +159,7 @@ async function main() {
 
     await page.locator('#add-watch').click();
     assert.equal(await page.locator('#watch-url').evaluate(node => node === document.activeElement), true);
+    assert.equal(await page.locator('#watch-interval').inputValue(), '60', 'new watches keep the existing one-hour default');
     assert.match(await page.locator('#supported-source-hint').innerText(), /REI Co-op（美国）/);
     assert.doesNotMatch(await page.locator('#supported-source-hint').innerText(), /加拿大|CAD/);
     await page.locator('#watch-url').fill('https://arcteryx.com/ca/en/shop/mens/synthetic-browser-fixture');
@@ -175,6 +177,7 @@ async function main() {
     await page.getByText('已找到 1 个明确变体。').waitFor();
     await page.getByLabel('选择颜色与尺码', { exact: true }).selectOption('0');
     await page.locator('#watch-target').fill('123.45');
+    await page.locator('#watch-interval').selectOption('15');
     await page.locator('#save-watch').click();
     await page.getByRole('heading', { name: 'SYNTHETIC US SHELL', exact: true }).waitFor();
     const creation = fixture.requests.find(item => item.url === '/api/watches');
@@ -182,6 +185,8 @@ async function main() {
     assert.equal(creation.body.sku, 'SYNTHETIC-SAME-SKU');
     assert.equal(creation.body.color, 'Synthetic Black');
     assert.equal(creation.body.size, 'M');
+    assert.equal(creation.body.interval_minutes, 15, 'the selected fifteen-minute interval reaches the create API');
+    assert.equal(fixture.watches[0].interval_minutes, 15);
     assert.equal(await page.locator('#watch-list .history-chart').count(), 0, 'discovery alone creates no historical observation');
 
     await page.getByRole('button', { name: '立即检查 SYNTHETIC US SHELL', exact: true }).click();
@@ -201,15 +206,19 @@ async function main() {
     assert.equal(await page.locator('#settings-target').isDisabled(), true, 'new-low rule has no target-price input');
     await page.locator('#settings-rule').selectOption('target');
     await page.locator('#settings-target').fill('99.99');
-    await page.locator('#settings-interval').selectOption('120');
+    await page.locator('#settings-interval').selectOption('15');
     await page.locator('#save-settings').click();
     await page.locator('#settings-dialog').waitFor({ state: 'hidden' });
     const patch = fixture.requests.find(item => item.method === 'PATCH');
     assert.equal(patch.body.target_price_minor, 9999);
-    assert.equal(patch.body.interval_minutes, 120);
+    assert.equal(patch.body.interval_minutes, 15);
+    assert.equal(fixture.watches[0].interval_minutes, 15);
     assert.equal(fixture.watches[0].target_price_minor, 9999);
     await page.getByText('目标价 ≤ $99.99 USD', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: '设置提醒 SYNTHETIC US SHELL', exact: true }).evaluate(node => node === document.activeElement), true, 'saving settings returns keyboard focus to its watch');
+    await page.getByRole('button', { name: '设置提醒 SYNTHETIC US SHELL', exact: true }).click();
+    assert.equal(await page.locator('#settings-interval').inputValue(), '15', 'reopening settings retains the saved faster interval');
+    await page.locator('#close-settings').click();
 
     fixture.watches.push(watch(2, 'CA', 15000, 'SYNTHETIC CA SHELL'), watch(3, 'US', 26000, 'SYNTHETIC US EXPENSIVE'));
     fixture.alerts.push({ id: 2, watch_id: 2, label: 'SYNTHETIC CA ALERT', market: 'CA',
@@ -334,6 +343,26 @@ async function main() {
     const failedCard = page.locator('.watch-card').filter({ has: page.getByRole('heading', { name: 'SYNTHETIC US SHELL', exact: true }) });
     assert.equal(await failedCard.locator('.metric-current .metric-value').innerText(), '—', 'failed source must hide stale numeric current-price fields');
     assert.match(await failedCard.innerText(), /120\.00/, 'recorded historical price remains available when current quote fails');
+    assert.equal(await failedCard.locator('.watch-check-detail').textContent(), `检查详情：${parseRule}`);
+    assert.equal(await failedCard.locator('.watch-check-detail script').count(), 0, 'failure details are rendered as text, never HTML');
+    assert.equal(await page.evaluate(() => window.syntheticDiagnosticUnsafe), undefined);
+    const detailedFailure = 'Offer currency does not match the watched market. ' + 'x'.repeat(600);
+    fixture.watches[0].last_error = detailedFailure;
+    await refresh();
+    assert.equal(await failedCard.locator('.watch-check-detail').textContent(), `检查详情：${detailedFailure.slice(0, 500)}`,
+      'changing only the error refreshes the cached card and limits the detail to 500 characters');
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+      'long unbroken failure details fit the mobile card');
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    fixture.watches[0].status = 'ok';
+    await refresh();
+    assert.equal(await failedCard.locator('.watch-check-detail').count(), 0, 'a healthy status hides leftover failure detail');
+    Object.assign(fixture.watches[0], { status: 'parse_error', enabled: false });
+    await refresh();
+    assert.equal(await failedCard.locator('.watch-check-detail').count(), 0, 'paused watches hide failure details');
+    Object.assign(fixture.watches[0], { enabled: true, last_error: parseRule });
+    await refresh();
     await page.locator('#status-filter').selectOption('attention');
     assert.equal(await page.locator('.watch-card').count(), 1);
     await page.locator('#reset-filters').click();
@@ -408,6 +437,7 @@ async function main() {
     fixture.offline = true;
     await refresh();
     await page.locator('#connection-message').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#watch-list .watch-check-detail').count(), 0, 'disconnection hides cached failure details');
     assert.deepEqual(await page.locator('#watch-list .metric-current .metric-value').allTextContents(), ['—', '—'], 'service disconnection hides all current prices');
     assert.equal(await page.locator('#fresh-count').innerText(), '0');
     assert.equal(await page.locator('#add-watch').isDisabled(), true, 'disconnection disables creation until state and CSRF are refreshed');
@@ -447,12 +477,13 @@ async function main() {
     const retailerCreation = fixture.requests.filter(item => item.url === '/api/watches').at(-1);
     assert.equal(retailerCreation.body.url, 'https://www.rei.com/product/12346/arcteryx-synthetic-browser-fixture');
     assert.equal(retailerCreation.body.target_price_minor, 12000);
+    assert.equal(retailerCreation.body.interval_minutes, 60, 'creating the next watch resets to the one-hour default');
     await page.locator('#retailer-filter').selectOption('rei');
     assert.equal(await page.locator('.watch-card').count(), 2, 'new retailer watch appears in its retailer filter');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'retailer filters fit mobile layout');
     assert.deepEqual(fixture.failures, []);
     assert.deepEqual(errors, [], 'no JavaScript or CSP runtime failures');
-    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, blocked-source status, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
+    console.log('PASS: synthetic browser official/REI discovery/create/edit, fifteen-minute create/edit and default reset, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, blocked-source status, safe and bounded failure details, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

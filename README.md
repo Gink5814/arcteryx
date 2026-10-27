@@ -20,16 +20,28 @@
 - [第三方零售商与历史资料：接入范围和回填条件](docs/retailers-and-history.md)
 - [历史促销来源核查](docs/history-source-research.md)
 
-## 启动
+## 快速开始
 
 Python 3.10+，仅使用标准库，无需安装第三方 Python 包。在仓库根目录运行：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 init
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 8080
+python3 scripts/run-monitor.py --db data/prices.sqlite3 init
+python3 scripts/run-monitor.py --db data/prices.sqlite3 serve --no-worker --port 8080
 ```
 
-服务绑定本机 `127.0.0.1:8080`，后台每 30 秒检查调度状态，每个关注默认 60 分钟采集一次。用户可在界面中立即检查、暂停或恢复。也可通过系统定时任务运行下方的单次命令，无需一直打开网页。自己的电脑关机、休眠或断网期间不会正常监控。
+Windows PowerShell 中把 `python3` 换成 `py -3 -X utf8`。`scripts/run-monitor.py` 自动加载仓库程序，日常命令无需设置 `PYTHONPATH`。
+
+服务绑定本机 `127.0.0.1:8080`。在网页中粘贴美国商品链接，读取变体后选择颜色和尺码，再填写目标价；网页按美元填写，例如 **USD 200 输入 `200`**，不需要自己查 SKU 或编写 JSON。每个关注默认每 60 分钟检查，可在“检查频率”中选择每 15 分钟。示例关注不会自动加入新数据库，实际款式与尺码由你选择。
+
+`--no-worker` 让网页负责管理关注，检查交给单次命令或系统定时任务。保存关注后，在另一个终端运行下面的试运行命令，无需先配置 Gmail：
+
+```bash
+python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --dry-run
+```
+
+**试运行会真实抓取页面并保存价格、检查及站内提醒，只预览邮件而不发送。** 它不是数据库只读模式；返回结果中的 `collection_persisted: true` 会标明采集已保存。尚未添加启用的关注时会明确提示，不会假装正在盯价。
+
+正式邮件发送及定时设置见下节。去掉 `--no-worker` 的网页服务也可持续运行检查调度器，但不会自行发邮件。自己的电脑关机、休眠或断网期间不会正常监控。
 
 临时网络故障会逐步延长重试间隔；商家限流时保存其等待截止时间，重启后继续遵守。立即检查和读取变体也遵守商家的等待要求，卡片会显示下次可检查时间。同一轮中，同一商品页的不同尺码共用初次页面读取，提醒复核仍独立重新请求。
 
@@ -40,10 +52,12 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 
 先按 [邮件设置](docs/email-alerts.md) 配置 Gmail 应用专用密码，可用 `gmail-test --env-file /absolute/private/gmail.env` 主动发送一封配置测试邮件，再运行：
 
 ```bash
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 run-once --notify gmail --env-file /absolute/private/gmail.env
+python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail --env-file /absolute/private/gmail.env
 ```
 
-默认检查所有已到期的美国关注，并发送尚未送达的有效提醒。`--force` 检查全部启用的关注，仍遵守商家限流；`--dry-run` 照常采集并保存价格，只预览邮件。连续采集失败三次会发送故障提示，发送失败会在后续运行中重试。需要先添加自己选定的商品、颜色、尺码和提醒条件，仓库不会自动替你选择。
+默认检查所有已到期的美国关注，并发送尚未送达的有效提醒。`--force` 检查全部启用的关注，仍遵守商家限流；系统定时任务不要加这个参数。连续采集失败三次会发送故障提示，发送失败会在后续运行中重试。
+
+要更快发现降价，把关注的检查间隔设为 **15 分钟**，再让系统每 **5 分钟**调用一次 `run-once`；每次调用只检查已到期商品。Linux 可使用独立的 [cron 模板](examples/schedulers/arcteryx.cron)，Windows 和 macOS 的配置见[定时任务说明](docs/email-alerts.md#4-让电脑每-5-分钟调用一次)。降低间隔不会绕过商家限流或已有等待期限。
 
 ## 已验证与限制
 
@@ -59,22 +73,26 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 run-once --no
 
 ```bash
 # 发现真实页面中的明确变体
-PYTHONPATH=src python3 -m arcteryx_prices discover https://arcteryx.com/us/en/shop/mens/beta-jacket-0868
-PYTHONPATH=src python3 -m arcteryx_prices discover https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
+python3 scripts/run-monitor.py discover https://arcteryx.com/us/en/shop/mens/beta-jacket-0868
+python3 scripts/run-monitor.py discover https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
 
 # 添加一个示例真实商品关注（价格会实时读取；重复关注会被拒绝）
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 watch-add examples/watch.us.json
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-add examples/watch.us.json
 
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 watch-list
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 check --watch-id 1
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 alerts
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-list
+# 将自己的关注 1 改为每 15 分钟检查；先用 watch-list 确认编号。
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-update 1 examples/watch.interval-15.json
+python3 scripts/run-monitor.py --db data/prices.sqlite3 check --watch-id 1
+python3 scripts/run-monitor.py --db data/prices.sqlite3 alerts
 
 # 导入实际取得的历史促销参考（幂等；不增加指标观测）
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-import research/historical-price-evidence.json
-PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 history-list
+python3 scripts/run-monitor.py --db data/prices.sqlite3 history-import research/historical-price-evidence.json
+python3 scripts/run-monitor.py --db data/prices.sqlite3 history-list
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-`data/prices.sqlite3` 保存在本地并被 Git 忽略。表结构、程序、研究和验证记录纳入版本管理。`examples/observations.example.json` 是合成单元测试示例，只能导入独立测试库；`examples/watch.us.json` 是真实商品的关注配置，不包含伪造价格。
+`data/prices.sqlite3` 保存在本地并被 Git 忽略。表结构、程序、研究和验证记录纳入版本管理。`examples/observations.example.json` 是合成单元测试示例，只能导入独立测试库；`examples/watch.us.json` 是真实商品的关注配置，不包含伪造价格。`examples/watch.interval-15.json` 只调整检查间隔，不创建关注或更换商品。
 
 浏览器回归：`node tests/frontend.e2e.cjs`。测试环境需要可用的 Node.js、Playwright 与 Chromium；当前云环境已提供。该测试使用隔离的合成 API 数据，覆盖实际浏览器操作、移动布局、断线、数据缺口和键盘焦点，不改动工作库。应用本身仍不依赖 Node.js。
+
+[GitHub Actions](.github/workflows/tests.yml) 在 PR 和 main 更新时自动检查 Linux、Windows 上的 Python 3.10/3.12 测试，并运行 Chromium 浏览器回归。测试使用隔离数据库和模拟 HTTP/SMTP，不需要 Gmail 密钥或真实商品降价。

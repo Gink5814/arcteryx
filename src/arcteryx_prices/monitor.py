@@ -22,6 +22,9 @@ from .scope import MARKET, CURRENCY, require_scope
 MONITOR_SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'monitor.sql'
 UTC = timezone.utc
 MAX_RETRY_DELAY = timedelta(hours=24)
+MIN_INTERVAL_MINUTES = 15
+MAX_INTERVAL_MINUTES = 1440
+DEFAULT_INTERVAL_MINUTES = 60
 
 
 def _now(value=None):
@@ -73,6 +76,12 @@ def initialize_monitor(db_path):
                         raise
     from .history import initialize_history
     initialize_history(connection)
+    from .migrations import migrate_watch_interval
+    try:
+        migrate_watch_interval(connection)
+    except Exception:
+        connection.close()
+        raise
     _cap_saved_retries(connection)
     # The product now supports US/USD only. Preserve old quotes and identities,
     # but retire other watches and invalidate any old worker's lease atomically.
@@ -122,9 +131,9 @@ def _settings(payload, *, creating=False):
             raise ValueError('target_price_minor must be a positive 64-bit integer or null')
         result['target_price_minor'] = price
     if creating or 'interval_minutes' in payload:
-        interval = payload.get('interval_minutes', 60)
-        if type(interval) is not int or not 30 <= interval <= 1440:
-            raise ValueError('interval_minutes must be an integer from 30 to 1440')
+        interval = payload.get('interval_minutes', DEFAULT_INTERVAL_MINUTES)
+        if type(interval) is not int or not MIN_INTERVAL_MINUTES <= interval <= MAX_INTERVAL_MINUTES:
+            raise ValueError('interval_minutes must be an integer from 15 to 1440')
         result['interval_minutes'] = interval
     if 'enabled' in payload:
         if type(payload['enabled']) is not bool:

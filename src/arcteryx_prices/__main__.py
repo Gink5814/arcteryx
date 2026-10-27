@@ -45,10 +45,10 @@ def main():
     check = commands.add_parser('check', help='Collect and verify one watch, or all due watches')
     check.add_argument('--watch-id', type=int)
     check.add_argument('--force', action='store_true', help='Check all enabled watches even when not due')
-    once = commands.add_parser('run-once', help='Check due watches, send Gmail alerts, and exit for a task scheduler')
-    once.add_argument('--notify', required=True, choices=['gmail'])
+    once = commands.add_parser('run-once', help='Check due watches, preview or send alerts, and exit for a task scheduler')
+    once.add_argument('--notify', choices=['gmail'], help='Required for real email delivery; optional with --dry-run')
     once.add_argument('--env-file', help='Private KEY=value Gmail configuration file; environment variables take precedence')
-    once.add_argument('--dry-run', action='store_true', help='Collect real prices and preview emails without sending or updating delivery records')
+    once.add_argument('--dry-run', action='store_true', help='Collect and SAVE real prices/checks, then preview alerts without Gmail settings or sending; delivery records stay unchanged')
     once.add_argument('--force', action='store_true', help='Check all enabled watches; still respect source cooldowns')
     mail_test = commands.add_parser('gmail-test', help='Send one explicitly labeled Gmail configuration test; does not collect prices')
     mail_test.add_argument('--env-file', help='Private KEY=value Gmail configuration file')
@@ -65,7 +65,12 @@ def main():
         if args.command == 'run-once':
             from .notifications import load_gmail_config
             from .runner import run_once
-            config = load_gmail_config(args.env_file, require_password=not args.dry_run)
+            if not args.dry_run and args.notify != 'gmail':
+                raise ValueError('run-once requires --notify gmail to send; use --dry-run to collect and preview without Gmail settings')
+            # A basic preview must not depend on ambient credentials. An explicit
+            # file opts into recipient-specific delivery history during preview.
+            config = (load_gmail_config(args.env_file, require_password=not args.dry_run)
+                      if not args.dry_run or args.env_file else None)
             result, code = run_once(args.db, config, force=args.force, dry_run=args.dry_run)
             print(json.dumps(result, ensure_ascii=False, indent=2))
             if code:
