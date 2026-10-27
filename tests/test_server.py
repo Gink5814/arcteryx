@@ -142,7 +142,7 @@ class ServerTest(unittest.TestCase):
             'availability': 'unknown', 'product_condition': 'unknown', 'price_type': 'public',
             'excerpt': 'Synthetic fixture, not a retail price.', 'body_sha256': 'a' * 64,
         }
-        with initialize_monitor(self.database_path) as database:
+        with closing(initialize_monitor(self.database_path)) as database, database:
             import_evidence(database, {'schema_version': 1, 'evidence': [record]})
         status, state, _ = self.request('GET', '/api/state')
         self.assertEqual(status, 200)
