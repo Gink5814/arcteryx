@@ -80,6 +80,86 @@ class ResilienceTest(unittest.TestCase):
         self.assertEqual(self.count('monitor_alerts'), 0)
         self.assertEqual(self.count('price_observations'), 1)  # out-of-stock L only
 
+    def test_tracking_redirects_confirm_and_keep_actual_source_urls(self):
+        watched_url = URL + '?color=Black&utm_source=watch'
+        primary_url = URL + '?color=Black&utm_source=first'
+        confirmed_url = URL + '?color=Black&utm_source=confirmation'
+        watch = self.watch(rule='target', target_price_minor=50000, url=watched_url)
+        with patch('arcteryx_prices.collector._read_page',
+                   side_effect=[(BODY, primary_url + '#details'), (BODY, confirmed_url + '#price')]) as fetch:
+            result = check_watch(self.db, watch['id'])
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(result['check_status'], 'ok')
+        self.assertIsNotNone(result['alert'])
+        self.assertEqual(result['url'], watched_url)
+        self.assertEqual(result['offer_key'], watch['offer_key'])
+        self.assertEqual([check['quote']['source_url'] for check in result['checks']],
+                         [primary_url, confirmed_url])
+        observed = self.db.execute('SELECT source_url FROM price_observations').fetchone()
+        self.assertEqual(observed['source_url'], confirmed_url)
+        self.assertEqual(result['metrics']['observed_all_time_min']['source_url'], confirmed_url)
+
+    def test_tracking_tolerance_still_rejects_other_pages_hosts_markets_and_variants(self):
+        watch = self.watch(rule='target', target_price_minor=50000)
+        changes = (
+            {'source_url': URL + '-other?utm_source=changed'},
+            {'source_url': OUTLET + '?utm_source=changed'},
+            {'source_url': URL.replace('/us/en/', '/ca/en/') + '?utm_source=changed'},
+            {'source_url': URL.replace('arcteryx.com', 'arcteryx.com.evil.example')},
+            {'sku': 'OTHER-SKU'}, {'color': 'Blue'}, {'size': 'L'},
+        )
+        for index, change in enumerate(changes):
+            for confirmation in (False, True):
+                with self.subTest(change=change, confirmation=confirmation):
+                    at = BASE + timedelta(hours=index * 2 + confirmation)
+                    original = quote(watch, at=at) | {'source_url': URL + '?utm_source=first'}
+                    altered = original | change
+                    fetcher = Mock(side_effect=[original, altered] if confirmation else [altered])
+                    result = check_watch(self.db, watch['id'], fetcher=fetcher, now=at)
+                    self.assertEqual(result['check_status'], 'verification_failed' if confirmation else 'parse_error')
+                    self.assertIsNone(result['alert'])
+        self.assertEqual(self.count('monitor_alerts'), 0)
+        self.assertEqual(self.count('price_observations'), 0)
+
+    def test_query_only_redirect_does_not_hide_price_or_stock_change(self):
+        watch = self.watch(rule='target', target_price_minor=50000)
+        for index, change in enumerate(({'price_minor': 45000}, {'availability': 'out_of_stock'})):
+            with self.subTest(change=change):
+                at = BASE + timedelta(hours=index)
+                first = quote(watch, at=at) | {'source_url': URL + '?tracking=first'}
+                second = first | {'source_url': URL + '?tracking=second'} | change
+                result = check_watch(self.db, watch['id'], fetcher=Mock(side_effect=[first, second]), now=at)
+                self.assertEqual(result['check_status'], 'verification_changed')
+                self.assertIsNone(result['alert'])
+        self.assertEqual(self.count('price_observations'), 0)
+
+    def test_site_blocked_at_either_stage_preserves_history_and_alert_arming(self):
+        watch = self.watch(rule='target', target_price_minor=50000)
+        baseline = check_watch(self.db, watch['id'], fetcher=lambda w: quote(w, price=60000), now=BASE)
+        observations = [tuple(row) for row in self.db.execute('SELECT * FROM price_observations')]
+        for index, confirmation in enumerate((False, True), start=1):
+            with self.subTest(confirmation=confirmation):
+                at = BASE + timedelta(hours=index)
+                blocked = CollectorError('site_blocked', 'Retailer blocked automated access.', http_status=403)
+                fetcher = Mock(side_effect=[quote(watch, at=at), blocked] if confirmation else [blocked])
+                result = check_watch(self.db, watch['id'], fetcher=fetcher, now=at)
+                self.assertEqual(result['check_status'], 'site_blocked')
+                self.assertEqual(result['status'], 'site_blocked')
+                self.assertEqual(result['checks'][-1]['status'], 'site_blocked')
+                self.assertEqual(result['checks'][-1]['http_status'], 403)
+                self.assertEqual(result['last_error'], 'Retailer blocked automated access.')
+                self.assertEqual(result['last_success_at'], baseline['last_success_at'])
+                self.assertIsNone(result['current_price_minor'])
+                self.assertIsNone(result['alert'])
+                self.assertEqual(result['armed'], 1)
+                self.assertEqual(result['consecutive_failures'], index)
+                self.assertEqual(observations, [tuple(row) for row in self.db.execute('SELECT * FROM price_observations')])
+        recovered_at = BASE + timedelta(hours=3)
+        recovered = check_watch(self.db, watch['id'], fetcher=lambda w: quote(w, at=recovered_at), now=recovered_at)
+        self.assertEqual(recovered['check_status'], 'ok')
+        self.assertIsNotNone(recovered['alert'])
+        self.assertEqual(recovered['consecutive_failures'], 0)
+
     def test_delayed_cached_primary_does_not_renew_quote_freshness(self):
         first, second = self.watch('M'), self.watch('L')
         available = BODY.replace(b'OutOfStock', b'InStock')

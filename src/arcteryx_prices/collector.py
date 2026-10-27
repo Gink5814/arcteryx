@@ -11,10 +11,12 @@ import hashlib
 import json
 import re
 from collections import OrderedDict
+from contextlib import suppress
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
+from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -23,6 +25,7 @@ from .scope import MARKET, CURRENCY
 
 
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+MAX_CHALLENGE_BYTES = 64 * 1024
 MAX_JSONLD_DOCUMENTS = 32
 MAX_JSONLD_NODES = 20000
 MAX_DISCOVERY_VARIANTS = 256
@@ -83,13 +86,47 @@ def _retry_after(value: str | None, now: datetime | None = None) -> datetime | N
         return None
 
 
-def _http_failure(code: int, headers, response_url: str | None = None) -> CollectorError:
+def _is_challenge(headers, body: bytes = b'') -> bool:
+    """Recognize explicit challenge signals, not ordinary CAPTCHA SDK scripts."""
+    if headers is not None:
+        mitigated = headers.get('CF-Mitigated') or headers.get('cf-mitigated')
+        if isinstance(mitigated, str) and mitigated.strip().lower() == 'challenge':
+            return True
+    text = body[:MAX_CHALLENGE_BYTES].decode('utf-8', errors='ignore').lower()
+    title = re.search(r'<title\b[^>]*>(.*?)</title\s*>', text, re.DOTALL)
+    if not title:
+        return False
+    title = ' '.join(title.group(1).split())
+    challenge_title = any(phrase in title for phrase in (
+        'just a moment', 'attention required', 'access denied', 'robot check',
+        'verify you are human', 'are you a human', 'pardon our interruption', 'captcha',
+    ))
+    verification_marker = any(marker in text for marker in (
+        '/cdn-cgi/challenge-platform/', 'cf-chl-', 'g-recaptcha', 'h-captcha',
+        'px-captcha', 'captcha-delivery.com', 'datadome', 'perimeterx',
+    ))
+    return challenge_title and verification_marker
+
+
+def _error_body(response) -> bytes:
+    """Inspect only a bounded prefix; an unreadable error body keeps its status."""
+    try:
+        return response.read(MAX_CHALLENGE_BYTES)
+    except (OSError, TimeoutError, ValueError, HTTPException):
+        return b''
+
+
+def _http_failure(code: int, headers, response_url: str | None = None, *, body: bytes = b'') -> CollectorError:
     try:
         response_url = validate_product_url(response_url)['url'] if response_url is not None else None
     except CollectorError:
         response_url = None
+    blocked = code == 403 or _is_challenge(headers, body)
+    message = (f'Website blocked access to the product page (HTTP {code}); the cause is not established.'
+               if code == 403 else f'Website returned a verification challenge instead of product data (HTTP {code}).')
     return CollectorError(
-        'http_error', f'Product request returned HTTP {code}', http_status=code,
+        'site_blocked' if blocked else 'http_error',
+        message if blocked else f'Product request returned HTTP {code}', http_status=code,
         retryable=code in {408, 429} or 500 <= code <= 599,
         retry_after=_retry_after(headers.get('Retry-After')) if headers is not None else None,
         response_url=response_url,
@@ -162,6 +199,8 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
                     final['retailer_key'] != validate_product_url(url)['retailer_key']):
                 raise CollectorError('redirect_blocked', 'Final response changed the watched market or retailer')
             if response.status != 200:
+                raise _http_failure(response.status, response.headers, final['url'], body=_error_body(response))
+            if _is_challenge(response.headers):
                 raise _http_failure(response.status, response.headers, final['url'])
             mime = response.headers.get_content_type()
             if mime not in {'text/html', 'application/xhtml+xml'}:
@@ -174,11 +213,20 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
             body = response.read(MAX_RESPONSE_BYTES + 1)
             if len(body) > MAX_RESPONSE_BYTES:
                 raise CollectorError('response_too_large', 'Product response exceeds the size limit')
+            if _is_challenge(response.headers, body):
+                raise _http_failure(response.status, response.headers, final['url'], body=body)
             return body, final['url']
     except CollectorError:
         raise
     except HTTPError as exc:
-        raise _http_failure(exc.code, exc.headers, exc.url) from exc
+        try:
+            error = _http_failure(exc.code, exc.headers, exc.url, body=_error_body(exc))
+        finally:
+            # Cleanup must not replace the classified HTTP failure with a
+            # transport exception or expose its raw details to callers.
+            with suppress(OSError, HTTPException):
+                exc.close()
+        raise error from exc
     except (URLError, OSError, TimeoutError, ValueError) as exc:
         # Do not include error bodies, authentication headers or proxy details.
         raise CollectorError('network_error', f'Product request failed ({type(exc).__name__})',
@@ -373,6 +421,7 @@ def _quote_from_products(products: list, indexed: dict, watch: dict, observed_at
                     'InStock': 'in_stock', 'LimitedAvailability': 'in_stock', 'OnlineOnly': 'in_stock',
                     'OutOfStock': 'out_of_stock', 'SoldOut': 'out_of_stock',
                     'PreOrder': 'out_of_stock', 'BackOrder': 'out_of_stock',
+                    'Discontinued': 'out_of_stock',
                 }.get(stock)
                 if availability is None:
                     raise CollectorError('availability_unknown', 'Exact offer does not establish current in-stock/out-of-stock status')
