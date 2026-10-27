@@ -211,7 +211,8 @@ class NotificationTest(unittest.TestCase):
                 self.assertEqual(self.deliver(at)[field], expected)
                 self.assertEqual(self.db.total_changes, before)
             finally:
-                self.db.set_authorizer(None)
+                # Python 3.10 needs an allow-all callback instead of None.
+                self.db.set_authorizer(lambda *_: sqlite3.SQLITE_OK)
 
         assert_read_only(BASE + timedelta(minutes=10), 'pending', 1)
         self.assertEqual(self.deliver(BASE + timedelta(days=8))['expired'], 1)

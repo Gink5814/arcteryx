@@ -95,7 +95,8 @@ class IntervalMigrationTest(unittest.TestCase):
             with self.assertRaises(sqlite3.DatabaseError):
                 migrate_watch_interval(self.db)
         finally:
-            self.db.set_authorizer(None)
+            # Python 3.10 does not support clearing the authorizer with None.
+            self.db.set_authorizer(lambda *_: sqlite3.SQLITE_OK)
         self.assertEqual(before, self.facts())
         self.assertEqual(original_schema, self.db.execute("SELECT sql FROM sqlite_master WHERE name='monitor_watches'").fetchone()[0])
         self.assertEqual(self.db.execute('PRAGMA foreign_keys').fetchone()[0], 1)
