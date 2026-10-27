@@ -15,9 +15,85 @@ let feedbackTimer;
 let discoveryBusy = false;
 let discoveredURL = null;
 let variants = [];
+let activeView = "overview";
+let searchTerm = "";
+let statusFilter = "all";
+let sortMode = "recent";
+let selectedHistoryId = null;
+let settingsWatchId = null;
+let savingWatch = false;
+let savingSettings = false;
+let historySignature = null;
+let historyOptionsSignature = null;
+let alertsSignature = null;
 const pending = new Set();
 const expandedHistory = new Set();
+const cardCache = new Map();
+const alertCache = new Map();
 const ruleNames = { target: "达到目标价", new_low: "已观测新低", restock: "重新有货" };
+const viewLabels = {
+  overview: ["关注清单", "盯住具体的颜色与尺码，让好价格有迹可循。"],
+  history: ["价格记录", "查看真实观测记录，了解每个价格背后的数据覆盖。"],
+  alerts: ["提醒中心", "每条提醒都经过价格与库存复核，保留触发时的记录。"],
+  guide: ["购买指南", "从用途、尺码到购买渠道，做好北美购物前的功课。"],
+};
+
+function setText(id, value) {
+  const element = $(id);
+  if (element) element.textContent = String(value);
+}
+
+function syncWriteControls() {
+  const canWrite = connected && Boolean(state.csrf_token);
+  ui.add.disabled = !canWrite;
+  ui.save.disabled = savingWatch || !canWrite;
+  if ($("save-settings")) $("save-settings").disabled = savingSettings || !canWrite;
+}
+
+function signature(value) {
+  // as_of is the query clock, not a change in price/history. Including it would
+  // recreate focused cards every poll despite unchanged monitoring evidence.
+  return JSON.stringify(value, (key, item) => key === "as_of" ? undefined : item);
+}
+
+function preserveWatchFocus(callback) {
+  const before = document.activeElement;
+  const control = before?.closest?.("[data-watch-action]");
+  const remembered = control ? {
+    id: control.dataset.watchId, action: control.dataset.watchAction,
+  } : null;
+  callback();
+  if (!remembered || before?.isConnected || ![document.body, null].includes(document.activeElement)) return;
+  const replacement = [...ui.list.querySelectorAll("[data-watch-action]")].find((element) =>
+    element.dataset.watchId === remembered.id && element.dataset.watchAction === remembered.action);
+  if (replacement && !replacement.disabled) replacement.focus({ preventScroll: true });
+}
+
+function reconcile(container, children) {
+  children.forEach((child, index) => {
+    if (container.children[index] !== child) container.insertBefore(child, container.children[index] || null);
+  });
+  while (container.children.length > children.length) container.lastElementChild.remove();
+}
+
+function setView(value, writeHash = true) {
+  activeView = Object.hasOwn(viewLabels, value) ? value : "overview";
+  document.querySelectorAll(".view-panel").forEach((panel) => {
+    const visible = panel.id === `view-${activeView}`;
+    panel.hidden = !visible; panel.classList.toggle("active", visible);
+  });
+  document.querySelectorAll("button[data-view]").forEach((button) => {
+    const selected = button.dataset.view === activeView;
+    button.classList.toggle("active", selected);
+    if (selected) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  setText("view-title", viewLabels[activeView][0]);
+  setText("view-subtitle", viewLabels[activeView][1]);
+  document.title = `${viewLabels[activeView][0]} · North 北美价格观察`;
+  if (writeHash && location.hash !== `#${activeView}`) history.pushState(null, "", `#${activeView}`);
+  if (loaded && activeView === "history") renderHistory();
+}
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -139,8 +215,8 @@ async function refresh() {
     const result = await api("/api/state");
     if (current !== sequence) return;
     const changed = !loaded || !connected ||
-      JSON.stringify(result.watches || []) !== JSON.stringify(state.watches) ||
-      JSON.stringify(result.alerts || []) !== JSON.stringify(state.alerts) ||
+      signature(result.watches || []) !== signature(state.watches) ||
+      signature(result.alerts || []) !== signature(state.alerts) ||
       result.csrf_token !== state.csrf_token;
     state = {
       watches: Array.isArray(result.watches) ? result.watches : [],
@@ -152,12 +228,15 @@ async function refresh() {
     ui.connection.hidden = true;
     $("sync-dot").classList.remove("error");
     $("sync-label").textContent = `状态已同步 · ${dateTime(new Date().toISOString())}`;
-    ui.add.disabled = !state.csrf_token;
+    syncWriteControls();
     updateForm();
     if (changed) render();
   } catch (error) {
     if (current !== sequence) return;
     connected = false;
+    state.csrf_token = null;
+    syncWriteControls();
+    updateForm();
     ui.connection.textContent = error.message;
     ui.connection.hidden = false;
     $("sync-dot").classList.add("error");
@@ -165,6 +244,7 @@ async function refresh() {
     if (!loaded) {
       ui.list.replaceChildren(node("div", "loading-state", "暂时无法读取关注清单。服务恢复后会自动重试。"));
       ui.alerts.replaceChildren(node("div", "alert-empty", "暂时无法读取提醒记录。"));
+      if ($("history-content")) $("history-content").replaceChildren(node("div", "empty-state", "暂时无法读取价格记录。服务恢复后会自动重试。"));
     } else render();
   } finally {
     ui.list.setAttribute("aria-busy", "false");
@@ -186,30 +266,32 @@ function ruleDescription(watch) {
   return "低于此前已观测最低价时提醒";
 }
 
-function chart(watch) {
+function chart(watch, standalone = false) {
   const stats = watch.metrics?.average_daily_low_90d || {};
   const points = (Array.isArray(stats.daily_minima) ? stats.daily_minima : [])
     .filter((point) => /^\d{4}-\d{2}-\d{2}$/.test(point.day) && Number.isFinite(point.price_minor))
     .sort((a, b) => a.day.localeCompare(b.day));
   const details = node("details", "history-details");
-  details.open = expandedHistory.has(String(watch.id));
+  details.open = standalone || expandedHistory.has(String(watch.id));
   details.addEventListener("toggle", () => {
     if (!details.isConnected) return;
     if (details.open) expandedHistory.add(String(watch.id));
     else expandedHistory.delete(String(watch.id));
   });
-  details.append(node("summary", "", "查看近 90 天的日最低价记录"));
+  const summary = node("summary", "", "查看近 90 天的日最低价记录");
+  setActionIdentity(summary, watch, "history");
+  details.append(summary);
   const content = node("div", "history-content");
   if (!points.length) {
     content.append(node("p", "chart-empty", "还没有符合条件的可购价格。首次成功检查后，记录会出现在这里。"));
     details.append(content);
-    return details;
+    return standalone ? content : details;
   }
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 650 100");
-  svg.setAttribute("preserveAspectRatio", "none");
-  svg.setAttribute("class", "history-chart");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.setAttribute("class", points.length === 1 ? "history-chart single-observation" : "history-chart");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", `近90天内${points.length}天的最低可购价，完整日期与价格见下方表格`);
   const values = points.map((point) => point.price_minor);
@@ -242,6 +324,7 @@ function chart(watch) {
     dot.setAttribute("cy", String(point.y));
     dot.setAttribute("r", "2.6");
     dot.setAttribute("class", "chart-point");
+    dot.setAttribute("stroke", "none");
     const title = document.createElementNS(ns, "title");
     title.textContent = `${point.day} · ${money(point.price_minor, watch.currency)} ${watch.currency}`;
     dot.append(title);
@@ -251,6 +334,7 @@ function chart(watch) {
   const labels = node("div", "chart-labels");
   labels.append(node("span", "", points[0].day), node("span", "", points[points.length - 1].day));
   content.append(labels, node("p", "chart-caption", `已观测 ${points.length}/90 天 · 日期按 UTC 统计；空白日期不延续上一报价。`));
+  if (points.length === 1) content.append(node("p", "chart-empty", "目前只有 1 天真实观测，尚不能形成价格趋势。后续记录会逐日积累。"));
   const scroll = node("div", "history-scroll");
   const table = node("table", "history-table");
   const head = node("thead"), row = node("tr");
@@ -264,21 +348,10 @@ function chart(watch) {
     body.append(line);
   }
   table.append(body); scroll.append(table); content.append(scroll); details.append(content);
-  return details;
+  return standalone ? content : details;
 }
 
-function watchCard(watch) {
-  const card = node("article", "watch-card");
-  const top = node("div", "watch-topline"), identity = node("div");
-  const heading = node("h3", "watch-title");
-  heading.append(externalLink(watch.label || watch.sku || "未命名关注", watch.url));
-  const variant = node("div", "watch-variant");
-  variant.append(node("span", "", watch.color), node("span", "", `尺码 ${watch.size}`));
-  identity.append(heading, variant, node("div", "watch-sku", `SKU ${watch.sku}`));
-  const badges = node("div", "watch-badges"), status = statusInfo(watch);
-  badges.append(node("span", "market-badge", `${watch.market} · ${watch.currency}`),
-    node("span", `status-badge ${status.tone}`.trim(), status.text));
-  top.append(identity, badges);
+function priceMetrics(watch) {
   const stats = watch.metrics || {}, coverage365 = stats.coverage_365d || {}, average = stats.average_daily_low_90d || {};
   const prices = node("div", "price-grid");
   prices.append(
@@ -291,6 +364,28 @@ function watchCard(watch) {
     metric("90 天日最低均价", money(average.display_minor, watch.currency),
       `已覆盖 ${average.observed_days || 0}/90 天${average.complete_day_coverage ? "" : " · 数据未满"}`),
   );
+  return prices;
+}
+
+function setActionIdentity(element, watch, action) {
+  element.dataset.watchId = String(watch.id);
+  element.dataset.watchAction = action;
+}
+
+function watchCard(watch) {
+  const card = node("article", "watch-card");
+  card.dataset.watchId = String(watch.id);
+  const top = node("div", "watch-topline"), identity = node("div");
+  const heading = node("h3", "watch-title");
+  heading.append(externalLink(watch.label || watch.sku || "未命名关注", watch.url));
+  const variant = node("div", "watch-variant");
+  variant.append(node("span", "", watch.color), node("span", "", `尺码 ${watch.size}`));
+  identity.append(heading, variant, node("div", "watch-sku", `SKU ${watch.sku}`));
+  const badges = node("div", "watch-badges"), status = statusInfo(watch);
+  badges.append(node("span", "market-badge", `${watch.market} · ${watch.currency}`),
+    node("span", `status-badge ${status.tone}`.trim(), status.text));
+  top.append(identity, badges);
+  const prices = priceMetrics(watch);
   const bottom = node("div", "watch-bottom"), health = node("div", "watch-health");
   health.append(node("div", "", ruleDescription(watch)),
     node("div", watch.stale && watch.last_success_at ? "health-warning" : "", `最近成功检查：${dateTime(watch.last_success_at)}`));
@@ -302,13 +397,21 @@ function watchCard(watch) {
   check.type = "button";
   check.disabled = !state.csrf_token || !watch.enabled || watch.checking || pending.has(`check-${watch.id}`);
   check.setAttribute("aria-label", `立即检查 ${watch.label || watch.sku}`);
+  setActionIdentity(check, watch, "check");
   check.addEventListener("click", () => checkWatch(watch));
   const toggle = node("button", "compact-button subtle", watch.enabled ? "暂停" : "恢复");
   toggle.type = "button";
   toggle.disabled = !state.csrf_token || pending.has(`toggle-${watch.id}`);
   toggle.setAttribute("aria-label", `${watch.enabled ? "暂停" : "恢复"}监控 ${watch.label || watch.sku}`);
+  setActionIdentity(toggle, watch, "toggle");
   toggle.addEventListener("click", () => toggleWatch(watch));
-  actions.append(check, toggle); bottom.append(health, actions);
+  const settings = node("button", "compact-button subtle", "设置提醒");
+  settings.type = "button";
+  settings.disabled = !state.csrf_token;
+  settings.setAttribute("aria-label", `设置提醒 ${watch.label || watch.sku}`);
+  setActionIdentity(settings, watch, "settings");
+  settings.addEventListener("click", () => openSettings(watch));
+  actions.append(check, settings, toggle); bottom.append(health, actions);
   card.append(top, prices, bottom, chart(watch));
   return card;
 }
@@ -319,34 +422,106 @@ function openForm() {
   $("watch-url").focus();
 }
 
+function needsAttention(watch) {
+  return Boolean(watch.enabled && !watch.checking && (
+    !connected || watch.stale || !watch.last_success_at || watch.availability === "unknown" ||
+    !["ok", "success"].includes(watch.status)
+  ));
+}
+
+function filteredWatches() {
+  const query = searchTerm.trim().toLocaleLowerCase();
+  const watches = state.watches.filter((watch) => {
+    if (market !== "all" && watch.market !== market) return false;
+    if (query && ![watch.label, watch.sku, watch.color, watch.size].filter(Boolean).join(" ").toLocaleLowerCase().includes(query)) return false;
+    if (statusFilter === "in_stock" && !hasCurrentPrice(watch)) return false;
+    if (statusFilter === "out_of_stock" && (!connected || !watch.enabled || watch.stale || watch.availability !== "out_of_stock")) return false;
+    if (statusFilter === "attention" && !needsAttention(watch)) return false;
+    if (statusFilter === "paused" && watch.enabled) return false;
+    return true;
+  });
+  const byName = (a, b) => String(a.label || a.sku).localeCompare(String(b.label || b.sku), "zh-CN", { numeric: true, sensitivity: "base" });
+  watches.sort((a, b) => {
+    if (sortMode === "name") return byName(a, b);
+    if (sortMode === "price_asc") {
+      // Comparing nominal CAD and USD prices would imply a nonexistent FX rule.
+      const group = String(a.market).localeCompare(String(b.market));
+      if (group) return group;
+      const priceA = hasCurrentPrice(a) ? a.current_price_minor : Infinity;
+      const priceB = hasCurrentPrice(b) ? b.current_price_minor : Infinity;
+      return priceA === priceB ? byName(a, b) : priceA - priceB;
+    }
+    const recentA = Date.parse(a.created_at || "") || 0;
+    const recentB = Date.parse(b.created_at || "") || 0;
+    return recentB - recentA || Number(b.id) - Number(a.id);
+  });
+  return watches;
+}
+
+function resetFilters() {
+  const restoreSearch = ui.list.contains(document.activeElement);
+  market = "all"; searchTerm = ""; statusFilter = "all"; sortMode = "recent";
+  if ($("watch-search")) $("watch-search").value = "";
+  if ($("status-filter")) $("status-filter").value = "all";
+  if ($("sort-watches")) $("sort-watches").value = "recent";
+  document.querySelectorAll("button[data-market]").forEach((button) => {
+    const selected = button.dataset.market === "all";
+    button.classList.toggle("active", selected); button.setAttribute("aria-pressed", String(selected));
+  });
+  if (loaded) renderWatches();
+  if (restoreSearch) $("watch-search")?.focus({ preventScroll: true });
+}
+
 function renderWatches() {
-  const watches = state.watches.filter((watch) => market === "all" || watch.market === market);
-  $("watch-count").textContent = String(watches.length);
+  const watches = filteredWatches();
+  setText("watch-count", watches.length);
+  setText("result-count", `${watches.length} / ${state.watches.length} 个关注项`);
+  const liveIds = new Set(state.watches.map((watch) => String(watch.id)));
+  for (const id of cardCache.keys()) if (!liveIds.has(id)) cardCache.delete(id);
   if (!watches.length) {
     const empty = node("div", "empty-state");
     const icon = node("span", "empty-icon", "↗");
     icon.setAttribute("aria-hidden", "true");
-    empty.append(icon, node("h3", "", market === "all" ? "从你想要的那件装备开始" : `还没有${market === "US" ? "美国" : "加拿大"}商品的关注记录`),
-      node("p", "", "添加商品链接和具体颜色、尺码。监控成功后，当前报价和价格历史会自动出现在这里。"));
-    const button = node("button", "button button-secondary", "＋ 添加第一个关注");
-    button.type = "button"; button.disabled = !state.csrf_token; button.addEventListener("click", openForm);
-    empty.append(button); ui.list.replaceChildren(empty);
+    const hasAny = state.watches.length > 0;
+    empty.append(icon, node("h3", "", hasAny ? "没有符合筛选条件的关注项" : "从你想要的那件装备开始"),
+      node("p", "", hasAny ? "尝试调整市场、状态或搜索词，查看其他关注的装备。" : "添加商品链接和具体颜色、尺码。监控成功后，当前报价和价格历史会自动出现在这里。"));
+    const button = node("button", "button button-secondary", hasAny ? "清除筛选条件" : "＋ 添加第一个关注");
+    button.type = "button"; button.disabled = !hasAny && !state.csrf_token;
+    button.addEventListener("click", hasAny ? resetFilters : openForm);
+    empty.append(button);
+    preserveWatchFocus(() => reconcile(ui.list, [empty]));
     return;
   }
-  ui.list.replaceChildren(...watches.map(watchCard));
+  const cards = watches.map((watch) => {
+    const id = String(watch.id);
+    const key = signature({ watch, connected, token: Boolean(state.csrf_token),
+      checkPending: pending.has(`check-${id}`), togglePending: pending.has(`toggle-${id}`) });
+    let cached = cardCache.get(id);
+    if (!cached || cached.signature !== key) {
+      cached = { signature: key, element: watchCard(watch) };
+      cardCache.set(id, cached);
+    }
+    return cached.element;
+  });
+  preserveWatchFocus(() => reconcile(ui.list, cards));
 }
 
 function renderAlerts() {
-  const alerts = state.alerts.filter((alert) => {
-    const watch = state.watches.find((item) => item.id === alert.watch_id);
-    return market === "all" || (alert.market || watch?.market) === market;
-  });
+  const alerts = state.alerts;
+  const key = signature({ alerts, watches: state.watches.map(({ id, label, sku, url, currency }) => ({ id, label, sku, url, currency })) });
+  if (alertsSignature === key) return;
+  alertsSignature = key;
+  const liveIds = new Set(alerts.map((alert) => String(alert.id)));
+  for (const id of alertCache.keys()) if (!liveIds.has(id)) alertCache.delete(id);
   if (!alerts.length) {
     ui.alerts.replaceChildren(node("div", "alert-empty", "还没有提醒。符合你设置的条件并通过报价复核后，会在这里留下记录。"));
     return;
   }
   const items = [...alerts].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).map((alert) => {
     const watch = state.watches.find((item) => item.id === alert.watch_id);
+    const itemKey = signature({ alert, label: watch?.label, sku: watch?.sku, url: watch?.url, currency: watch?.currency });
+    const cached = alertCache.get(String(alert.id));
+    if (cached?.signature === itemKey) return cached.element;
     const item = node("article", "alert-item"), symbol = node("span", "alert-symbol", "↓");
     symbol.setAttribute("aria-hidden", "true");
     const copy = node("div", "alert-copy");
@@ -355,16 +530,69 @@ function renderAlerts() {
     copy.append(node("h3", "alert-title", label), node("div", "alert-meta", `${ruleNames[alert.rule] || "价格提醒"} · ${dateTime(alert.created_at)} · ${currency || ""}`));
     item.append(symbol, copy, node("div", "alert-price", money(alert.price_minor, currency)),
       externalLink("查看商品 ↗", alert.url || watch?.url, "alert-link"));
+    alertCache.set(String(alert.id), { signature: itemKey, element: item });
     return item;
   });
-  ui.alerts.replaceChildren(...items);
+  reconcile(ui.alerts, items);
+}
+
+function renderHistory() {
+  const select = $("history-watch"), content = $("history-content");
+  if (!select || !content) return;
+  const optionsKey = signature(state.watches.map(({ id, label, sku, color, size, market, currency }) => ({ id, label, sku, color, size, market, currency })));
+  if (optionsKey !== historyOptionsSignature) {
+    historyOptionsSignature = optionsKey;
+    select.replaceChildren();
+    select.disabled = state.watches.length === 0;
+    if (!state.watches.length) {
+      const option = node("option", "", "先添加一个关注项"); option.value = ""; select.append(option);
+    } else {
+      for (const watch of state.watches) {
+        const option = node("option", "", `${watch.label || watch.sku} · ${watch.color} / ${watch.size} · ${watch.market} ${watch.currency}`);
+        option.value = String(watch.id); select.append(option);
+      }
+    }
+  }
+  if (!state.watches.some((watch) => String(watch.id) === selectedHistoryId)) {
+    selectedHistoryId = state.watches.length ? String(state.watches[0].id) : null;
+  }
+  select.value = selectedHistoryId || "";
+  const watch = state.watches.find((item) => String(item.id) === selectedHistoryId);
+  const key = signature({ watch: watch || null, connected });
+  if (historySignature === key) return;
+  historySignature = key;
+  if (!watch) {
+    const empty = node("div", "empty-state");
+    empty.append(node("h3", "", "价格历史从第一次关注开始"),
+      node("p", "", "添加一个明确的颜色和尺码，成功采集后即可查看真实价格记录与覆盖天数。"));
+    const add = node("button", "button button-primary", "添加关注"); add.type = "button"; add.disabled = !state.csrf_token;
+    add.addEventListener("click", openForm); empty.append(add); content.replaceChildren(empty); return;
+  }
+  const wrapper = node("article", "history-watch");
+  const heading = node("div", "history-heading");
+  heading.append(node("h3", "", watch.label || watch.sku),
+    node("p", "", `${watch.color} · 尺码 ${watch.size} · ${watch.market} / ${watch.currency}`));
+  const stats = priceMetrics(watch);
+  wrapper.append(heading, stats, chart(watch, true),
+    node("p", "method-note", "仅统计全新、现货、公开单件报价。历史最低指已观测记录中的最低价；覆盖天数不足时，不代表完整历史。"));
+  content.replaceChildren(wrapper);
 }
 
 function render() {
-  $("active-count").textContent = String(state.watches.filter((watch) => watch.enabled).length);
-  $("fresh-count").textContent = String(state.watches.filter(hasCurrentPrice).length);
-  $("alert-count").textContent = String(state.alerts.length);
-  renderWatches(); renderAlerts();
+  setText("active-count", state.watches.filter((watch) => watch.enabled).length);
+  setText("fresh-count", state.watches.filter(hasCurrentPrice).length);
+  setText("alert-count", state.alerts.length);
+  setText("attention-count", state.watches.filter(needsAttention).length);
+  setText("nav-watch-count", state.watches.length);
+  setText("nav-alert-count", state.alerts.length);
+  renderWatches(); renderAlerts(); renderHistory();
+}
+
+function restoreActionFocus(watchId, action) {
+  if (document.activeElement !== document.body) return;
+  const button = [...ui.list.querySelectorAll("[data-watch-action]")].find((item) =>
+    item.dataset.watchId === String(watchId) && item.dataset.watchAction === action && !item.disabled);
+  if (button) button.focus({ preventScroll: true });
 }
 
 async function checkWatch(watch) {
@@ -378,7 +606,7 @@ async function checkWatch(watch) {
     const info = current ? statusInfo({ ...current, id: null }) : null;
     showFeedback(info ? `检查完成：${info.text}。` : "检查请求已完成。", info?.tone === "warning" || info?.tone === "error");
   } catch (error) { showFeedback(error.message, true); }
-  finally { pending.delete(key); renderWatches(); }
+  finally { pending.delete(key); renderWatches(); restoreActionFocus(watch.id, "check"); }
 }
 
 async function toggleWatch(watch) {
@@ -390,7 +618,59 @@ async function toggleWatch(watch) {
     showFeedback(watch.enabled ? "已暂停这个关注项。" : "已恢复监控，将按设置的间隔检查。");
     await refresh();
   } catch (error) { showFeedback(error.message, true); }
-  finally { pending.delete(key); renderWatches(); }
+  finally { pending.delete(key); renderWatches(); restoreActionFocus(watch.id, "toggle"); }
+}
+
+function updateSettingsForm() {
+  const rule = $("settings-rule")?.value, target = $("settings-target");
+  if (!target) return;
+  target.disabled = rule === "new_low";
+  target.required = rule === "target";
+  if ($("settings-target-field")) $("settings-target-field").hidden = rule === "new_low";
+  setText("settings-target-hint", rule === "restock" ? "可留空。填写后只在补货且不高于该价格时提醒。" : rule === "new_low" ? "首次有效报价作为基线，之后出现更低的现货价时提醒。" : "价格达到或低于目标价并通过复核时提醒。");
+}
+
+function openSettings(watch) {
+  const dialog = $("settings-dialog");
+  if (!dialog) return;
+  settingsWatchId = watch.id;
+  setText("settings-watch-name", `${watch.label || watch.sku} · ${watch.color} / ${watch.size}`);
+  $("settings-rule").value = watch.rule;
+  $("settings-target").value = watch.target_price_minor ? (watch.target_price_minor / 100).toFixed(2) : "";
+  setText("settings-target-currency", watch.currency);
+  const interval = $("settings-interval");
+  interval.querySelectorAll("option[data-custom-interval]").forEach((option) => option.remove());
+  if (![...interval.options].some((option) => option.value === String(watch.interval_minutes))) {
+    const custom = node("option", "", `每 ${watch.interval_minutes} 分钟（当前设置）`);
+    custom.value = String(watch.interval_minutes); custom.dataset.customInterval = "true";
+    interval.append(custom);
+  }
+  interval.value = String(watch.interval_minutes);
+  $("settings-error").hidden = true;
+  updateSettingsForm();
+  if (!dialog.open) dialog.showModal();
+  $("settings-rule").focus();
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const save = $("save-settings");
+  if (save.disabled || settingsWatchId === null) return;
+  const id = settingsWatchId;
+  savingSettings = true; syncWriteControls(); save.textContent = "正在保存…"; $("settings-error").hidden = true;
+  try {
+    const rule = $("settings-rule").value;
+    const target = rule === "new_low" ? null : priceToMinor($("settings-target").value);
+    if (rule === "target" && target === null) throw new Error("请填写目标价。");
+    await api(`/api/watches/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({
+      rule, target_price_minor: target, interval_minutes: Number($("settings-interval").value),
+    }) });
+    $("settings-dialog").close();
+    showFeedback("提醒设置已更新，将按新的条件监控。");
+    await refresh(); restoreActionFocus(id, "settings");
+  } catch (error) {
+    $("settings-error").textContent = error.message; $("settings-error").hidden = false;
+  } finally { savingSettings = false; syncWriteControls(); save.textContent = "保存设置"; }
 }
 
 function updateForm() {
@@ -474,6 +754,48 @@ function priceToMinor(text) {
 }
 
 ui.add.addEventListener("click", openForm);
+$("empty-add")?.addEventListener("click", openForm);
+document.querySelectorAll("button[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+window.addEventListener("hashchange", () => {
+  const value = location.hash.slice(1);
+  if (Object.hasOwn(viewLabels, value)) setView(value, false);
+});
+$("watch-search")?.addEventListener("input", (event) => {
+  searchTerm = event.target.value;
+  if (loaded) renderWatches();
+});
+$("status-filter")?.addEventListener("change", (event) => {
+  statusFilter = event.target.value;
+  if (loaded) renderWatches();
+});
+$("sort-watches")?.addEventListener("change", (event) => {
+  sortMode = event.target.value;
+  if (loaded) renderWatches();
+});
+$("reset-filters")?.addEventListener("click", resetFilters);
+$("history-watch")?.addEventListener("change", (event) => {
+  selectedHistoryId = event.target.value || null;
+  renderHistory();
+});
+$("refresh-state")?.addEventListener("click", async () => {
+  const button = $("refresh-state");
+  if (button.disabled) return;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    await refresh();
+    if (connected) showFeedback("监控状态已刷新。");
+  } finally { button.disabled = false; button.removeAttribute("aria-busy"); }
+});
+$("settings-rule")?.addEventListener("change", updateSettingsForm);
+$("settings-form")?.addEventListener("submit", saveSettings);
+$("close-settings")?.addEventListener("click", () => $("settings-dialog").close());
+$("settings-dialog")?.addEventListener("click", (event) => {
+  const dialog = $("settings-dialog");
+  if (event.target !== dialog) return;
+  const rect = dialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+});
 $("close-dialog").addEventListener("click", () => ui.dialog.close());
 ui.dialog.addEventListener("click", (event) => { if (event.target === ui.dialog) {
   const rect = ui.dialog.getBoundingClientRect();
@@ -498,19 +820,20 @@ $("variant-select").addEventListener("change", () => {
 for (const id of ["watch-sku", "watch-color", "watch-size"]) {
   $(id).addEventListener("invalid", () => { $("manual-fields").open = true; });
 }
-document.querySelectorAll(".filter").forEach((button) => button.addEventListener("click", () => {
+document.querySelectorAll("button[data-market]").forEach((button) => button.addEventListener("click", () => {
   market = button.dataset.market;
-  document.querySelectorAll(".filter").forEach((item) => {
+  document.querySelectorAll("button[data-market]").forEach((item) => {
     const selected = item.dataset.market === market;
     item.classList.toggle("active", selected); item.setAttribute("aria-pressed", String(selected));
   });
-  if (loaded) { renderWatches(); renderAlerts(); }
+  if (loaded) renderWatches();
 }));
 ui.form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (ui.save.disabled) return;
   $("form-error").hidden = true;
-  ui.save.disabled = true;
+  savingWatch = true;
+  syncWriteControls();
   ui.save.textContent = "正在保存…";
   try {
     const url = safeProductURL($("watch-url").value.trim());
@@ -533,12 +856,15 @@ ui.form.addEventListener("submit", async (event) => {
     $("form-error").textContent = error.message;
     $("form-error").hidden = false;
   } finally {
-    ui.save.disabled = false;
+    savingWatch = false;
+    syncWriteControls();
     ui.save.textContent = "开始关注 ↗";
   }
 });
 
 updateForm();
+syncWriteControls();
+setView(location.hash.slice(1) || "overview", false);
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 15000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });

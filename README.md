@@ -2,6 +2,12 @@
 
 面向美国和加拿大的本地监控工作台：粘贴官方商品链接，读取颜色和尺码，关注目标价、已观测新低或补货。美国 USD、加拿大 CAD 独立统计。
 
+前端包括关注清单、价格记录、提醒中心和购买指南四个视图。支持名称/颜色/尺码搜索、市场与状态筛选、按币种分组排序，以及在页面直接调整目标价、提醒规则和检查间隔。手机端使用紧凑导航与单列卡片。
+
+[查看桌面截图](docs/screenshots/dashboard-desktop.png) · [查看手机截图](docs/screenshots/dashboard-mobile.png)
+
+![连接实际工作数据库的前端](docs/screenshots/dashboard-desktop.png)
+
 - [北美购买经验与攻略：14 个已读取来源](docs/north-america-buying-guide.md)
 - [运行、监控规则与实际验证](docs/monitoring.md)
 - [价格数据库和三项历史指标](docs/database.md)
@@ -45,3 +51,5 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
 `data/prices.sqlite3` 保存在本地并被 Git 忽略。表结构、程序、研究和验证记录纳入版本管理。`examples/observations.example.json` 是合成单元测试示例，只能导入独立测试库；`examples/watch.us.json` 是真实商品的关注配置，不包含伪造价格。
+
+浏览器回归：`node tests/frontend.e2e.cjs`。测试环境需要可用的 Node.js、Playwright 与 Chromium；当前云环境已提供。该测试使用隔离的合成 API 数据，覆盖实际浏览器操作、移动布局、断线、数据缺口和键盘焦点，不改动工作库。应用本身仍不依赖 Node.js。
