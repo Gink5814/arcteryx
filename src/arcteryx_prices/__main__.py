@@ -45,11 +45,32 @@ def main():
     check = commands.add_parser('check', help='Collect and verify one watch, or all due watches')
     check.add_argument('--watch-id', type=int)
     check.add_argument('--force', action='store_true', help='Check all enabled watches even when not due')
+    once = commands.add_parser('run-once', help='Check due watches, send Gmail alerts, and exit for a task scheduler')
+    once.add_argument('--notify', required=True, choices=['gmail'])
+    once.add_argument('--env-file', help='Private KEY=value Gmail configuration file; environment variables take precedence')
+    once.add_argument('--dry-run', action='store_true', help='Collect real prices and preview emails without sending or updating delivery records')
+    once.add_argument('--force', action='store_true', help='Check all enabled watches; still respect source cooldowns')
+    mail_test = commands.add_parser('gmail-test', help='Send one explicitly labeled Gmail configuration test; does not collect prices')
+    mail_test.add_argument('--env-file', help='Private KEY=value Gmail configuration file')
     discover = commands.add_parser('discover', help='Read verified color/size variants from a supported retailer product page')
     discover.add_argument('url')
     args = parser.parse_args()
     connection = None
     try:
+        if args.command == 'gmail-test':
+            from .notifications import load_gmail_config, send_test_email
+            result = send_test_email(load_gmail_config(args.env_file))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return
+        if args.command == 'run-once':
+            from .notifications import load_gmail_config
+            from .runner import run_once
+            config = load_gmail_config(args.env_file, require_password=not args.dry_run)
+            result, code = run_once(args.db, config, force=args.force, dry_run=args.dry_run)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if code:
+                raise SystemExit(code)
+            return
         if args.command == 'serve':
             from .server import serve
             serve(args.db, args.host, args.port, background=not args.no_worker)

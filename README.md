@@ -10,6 +10,7 @@
 
 - [美国购买经验与攻略：附来源](docs/north-america-buying-guide.md)
 - [运行、监控规则与实际验证](docs/monitoring.md)
+- [Gmail 邮件提醒与电脑定时检查](docs/email-alerts.md)
 - [价格数据库和三项历史指标](docs/database.md)
 - [首轮工具调研](docs/research.md)
 - [五个成熟开源项目的源码比较与采集优化](docs/open-source-monitoring-review.md)
@@ -28,11 +29,21 @@ PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 init
 PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 serve --port 8080
 ```
 
-服务绑定本机 `127.0.0.1:8080`，后台每 30 秒检查调度状态，每个关注默认 60 分钟采集一次。用户可在界面中立即检查、暂停或恢复。服务关闭后不会继续监控；新任务需要重新启动。
+服务绑定本机 `127.0.0.1:8080`，后台每 30 秒检查调度状态，每个关注默认 60 分钟采集一次。用户可在界面中立即检查、暂停或恢复。也可通过系统定时任务运行下方的单次命令，无需一直打开网页。自己的电脑关机、休眠或断网期间不会正常监控。
 
 临时网络故障会逐步延长重试间隔；商家限流时保存其等待截止时间，重启后继续遵守。立即检查和读取变体也遵守商家的等待要求，卡片会显示下次可检查时间。同一轮中，同一商品页的不同尺码共用初次页面读取，提醒复核仍独立重新请求。
 
-工作台包含美国关注清单、价格历史、覆盖天数及站内提醒。提醒经两次读取确认并去重。尚未连接邮件服务或实现浏览器扩展；本版为单用户本地工具，不支持直接开放到公网。
+工作台包含美国关注清单、价格历史、覆盖天数及站内提醒。提醒经两次读取确认并去重。配置 Gmail 后，`run-once --notify gmail` 可发送邮件并记录发送结果；网页服务本身仍只生成站内提醒。本版为单用户本地工具，不支持直接开放到公网。
+
+## 单次检查并发邮件
+
+先按 [邮件设置](docs/email-alerts.md) 配置 Gmail 应用专用密码，可用 `gmail-test --env-file /absolute/private/gmail.env` 主动发送一封配置测试邮件，再运行：
+
+```bash
+PYTHONPATH=src python3 -m arcteryx_prices --db data/prices.sqlite3 run-once --notify gmail --env-file /absolute/private/gmail.env
+```
+
+默认检查所有已到期的美国关注，并发送尚未送达的有效提醒。`--force` 检查全部启用的关注，仍遵守商家限流；`--dry-run` 照常采集并保存价格，只预览邮件。连续采集失败三次会发送故障提示，发送失败会在后续运行中重试。需要先添加自己选定的商品、颜色、尺码和提醒条件，仓库不会自动替你选择。
 
 ## 已验证与限制
 
