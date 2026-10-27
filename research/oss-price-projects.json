@@ -1,0 +1,423 @@
+{
+  "researched_at": "2026-10-27T04:32:54.360606+00:00",
+  "scope": "US/USD only; source-code assessment, not a live compatibility test or installation.",
+  "method": "Read maintainer metadata, pinned README/license/dependency files, implementation and relevant tests; no third-party application code executed or copied. Stars/pushdates are descriptive metadata, not correctness evidence.",
+  "recommendation": "Use PriceBuddy as the product/function reference; use durable scheduling and health ideas from it and Huginn while preserving our strict variant/provenance model.",
+  "projects": [
+    {
+      "category": "self_hosted_price_tracking_application",
+      "license_verified": "GPL-3.0-only (composer.json); GPLv3 text in LICENSE",
+      "fit": "Strongest complete price-tracker application inspected here; useful reference, not an exact-variant US Arc'teryx drop-in replacement.",
+      "verified_features": [
+        {
+          "claim": "Has both plain HTTP and browser-backed scrape services; browser service is separate seleniumbase-scrapper container.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Enums/ScraperService.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/docker-compose.yml"
+          ]
+        },
+        {
+          "claim": "Store-level configurable extraction collects title, description, price, image and availability; this contract does not require SKU, color or size.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Services/ScrapeUrl.php"
+          ]
+        },
+        {
+          "claim": "Appends price rows associated with URL and store. Current migration uses float; price stats min/max/average calculate an input series, not proof of our daily-low 90/365 semantics.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/database/migrations/2025_01_08_040213_create_prices_table.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Models/Url.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Services/Insights/PriceStatsCalculator.php"
+          ]
+        },
+        {
+          "claim": "Delayed retry chain defaults to 3 attempts and a 15-minute delay, stops after recovery or pause/deletion, and throttles exhausted-failure notifications across URLs of a product. Queue retry attempts are 1 to avoid duplicate retry chains.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Jobs/RetryUrlPriceJob.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/database/settings/2026_06_10_000000_add_scrape_retry_settings.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/tests/Feature/Jobs/RetryUrlPriceJobTest.php"
+          ]
+        },
+        {
+          "claim": "Successful dispatch precedes advancing custom next_check_at, so dispatch failure does not silently skip a due product. Per-product jobs pace their scraping via configured sleep.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Services/PriceFetcherService.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Jobs/UpdateProductPricesJob.php"
+          ]
+        },
+        {
+          "claim": "Scrape retries disable page cache; unreadable amount returns null rather than inserting zero; unavailable product without price keeps previous history.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Services/ScrapeUrl.php",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/app/Models/Url.php"
+          ]
+        },
+        {
+          "claim": "Built-in US seed file contains Amazon US and eBay US; no Arc'teryx/REI adapter in that file. Generic support claims were not live-verified on our retailers.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/database/seeders/Stores/usa.php"
+          ]
+        },
+        {
+          "claim": "PHP 8.4 / Laravel 12 application; recommended compose also runs MySQL 8.2 and a browser scrape service. Heavier operational change than current Python stdlib / SQLite app.",
+          "source_urls": [
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/composer.json",
+            "https://github.com/jez500/pricebuddy/blob/f606128f5f723b70fe817362954e251c02143745/docker-compose.yml"
+          ]
+        }
+      ],
+      "adopt_independent_design": [
+        "Persist delayed failure retries and retry state; respect paused watches and bound attempts.",
+        "Space requests per source and make exhausted-failure events deduplicated.",
+        "Keep independent confirmation reads uncached if a page cache is added later."
+      ],
+      "do_not_assume": [
+        "No live US Arc'teryx or REI validation performed for PriceBuddy.",
+        "No pre-monitoring historical price dataset obtained.",
+        "No exact manufacturer SKU/color/size match guarantee in inspected generic extraction contract.",
+        "Do not copy GPL-3.0-only source into this MIT repository without separately resolving licensing. Only architecture is referenced."
+      ],
+      "repository": "jez500/pricebuddy",
+      "url": "https://github.com/jez500/pricebuddy",
+      "commit": "f606128f5f723b70fe817362954e251c02143745",
+      "metadata": {
+        "default_branch": "main",
+        "pushed_at": "2026-10-24T00:04:30Z",
+        "archived": false,
+        "stargazers_count": 1448
+      },
+      "sources": [
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/README.md",
+          "sha256": "716741248886f7fae50ac5a14bda87720ce6f07ac0182cf900bc38ba2232b36d",
+          "bytes": 7678,
+          "retrieved_at": "2026-10-27T04:31:08.727787+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "bytes": 35149,
+          "retrieved_at": "2026-10-27T04:31:08.675240+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "composer.json",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/composer.json",
+          "sha256": "c1f2a60f38933a39d17f6ca4dc1314c8d9031e5e8026ea2a6bf93c032f8c72b3",
+          "bytes": 3395,
+          "retrieved_at": "2026-10-27T04:31:08.659820+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Jobs/RetryUrlPriceJob.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Jobs/RetryUrlPriceJob.php",
+          "sha256": "1e6f974f6a18d09b091dcdaded91d10d46df81a3137110c09b61b78451872154",
+          "bytes": 2851,
+          "retrieved_at": "2026-10-27T04:31:08.739697+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Jobs/UpdateAllPricesJob.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Jobs/UpdateAllPricesJob.php",
+          "sha256": "bef2adaa991d5028696e70c14dcdc632ec4c80f336e5d669a04ffbba81d6af3e",
+          "bytes": 576,
+          "retrieved_at": "2026-10-27T04:31:08.677867+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Jobs/UpdateProductPricesJob.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Jobs/UpdateProductPricesJob.php",
+          "sha256": "7f82aae19ff4b1c7d48191782cad177abbced6b1fc76ddac8b06a0011bc88095",
+          "bytes": 2153,
+          "retrieved_at": "2026-10-27T04:31:08.709444+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Services/PriceFetcherService.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Services/PriceFetcherService.php",
+          "sha256": "b4e42c6e6b4c36dba964cf92475def1bd4fe1b64070f8e02f1fa6450fbb93e50",
+          "bytes": 2723,
+          "retrieved_at": "2026-10-27T04:31:08.855945+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Services/ScrapeUrl.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Services/ScrapeUrl.php",
+          "sha256": "0a88d65b63e6db6fa3c581992d95b2ecf7d5973355a231134b10142b7fda29ed",
+          "bytes": 18451,
+          "retrieved_at": "2026-10-27T04:31:08.872104+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Services/Insights/PriceStatsCalculator.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Services/Insights/PriceStatsCalculator.php",
+          "sha256": "b0e32c48bb1f5e9ffcf8d23da4a6f42879beb83511b0c3007d929046f7a21909",
+          "bytes": 2142,
+          "retrieved_at": "2026-10-27T04:31:08.921291+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Models/Price.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Models/Price.php",
+          "sha256": "6b81d4c75f79127e31a38eb6d193238125b7316ae34a4cbb4d92ad31b28de8c3",
+          "bytes": 1761,
+          "retrieved_at": "2026-10-27T04:31:08.918545+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Models/Url.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Models/Url.php",
+          "sha256": "7305bc7697f4a55786c59ab4281dac491ac3bef3eedd03c9b55307cfe0dc2e7a",
+          "bytes": 18656,
+          "retrieved_at": "2026-10-27T04:31:08.915245+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Listeners/NotifyPriceChangeListener.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Listeners/NotifyPriceChangeListener.php",
+          "sha256": "f1e4b14bc049905baa8d134a614b9ae05ee93da1f77a3f72710341a867e72116",
+          "bytes": 526,
+          "retrieved_at": "2026-10-27T04:31:08.918271+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Services/Helpers/NotificationsHelper.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Services/Helpers/NotificationsHelper.php",
+          "sha256": "c7d2946652b24accb3e5aa6925dad75b7c21ff62f5a33fe4661b39515db6ba10",
+          "bytes": 3109,
+          "retrieved_at": "2026-10-27T04:31:09.053676+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "database/migrations/2025_01_08_040213_create_prices_table.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/database/migrations/2025_01_08_040213_create_prices_table.php",
+          "sha256": "93da31968a9d1c0b5276229577d4b445f893ce10d957992a7c7b22433b819d0e",
+          "bytes": 701,
+          "retrieved_at": "2026-10-27T04:31:09.089671+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "database/settings/2026_06_10_000000_add_scrape_retry_settings.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/database/settings/2026_06_10_000000_add_scrape_retry_settings.php",
+          "sha256": "d19af7c77100b1ea4bc9cf1fa5fd1bc8bfea6e326c5146758fc1ed1eaa545306",
+          "bytes": 1024,
+          "retrieved_at": "2026-10-27T04:31:09.092312+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "tests/Feature/Jobs/RetryUrlPriceJobTest.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/tests/Feature/Jobs/RetryUrlPriceJobTest.php",
+          "sha256": "36091c6324e47e50a54f0e8197bae18d8e67dc76929571ab1df14825056d3d0c",
+          "bytes": 4261,
+          "retrieved_at": "2026-10-27T04:31:09.085208+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "database/seeders/Stores/usa.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/database/seeders/Stores/usa.php",
+          "sha256": "3c85512720a5d4b0ba1cf2a7d07ceb6dc33c10452b6da885ae9a0b3e7e397d7e",
+          "bytes": 1255,
+          "retrieved_at": "2026-10-27T04:32:00.890297+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "docker-compose.yml",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/docker-compose.yml",
+          "sha256": "5bcf732271ee1fb34945faf2340095d345228e5b248a7057f8eba89757419299",
+          "bytes": 2195,
+          "retrieved_at": "2026-10-27T04:32:01.005911+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Enums/ScraperService.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Enums/ScraperService.php",
+          "sha256": "62e8ddd1b8effd19866664fb1381d50e3d528e7fd6b17cbbfa97ce35385cf2fe",
+          "bytes": 1177,
+          "retrieved_at": "2026-10-27T04:32:00.889980+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Enums/StockStatus.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Enums/StockStatus.php",
+          "sha256": "354d1cace546d9014937f0dc6d301df330734216645178a2ba9f86a8078f3464",
+          "bytes": 7032,
+          "retrieved_at": "2026-10-27T04:32:00.893082+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Services/AutoCreateStore.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Services/AutoCreateStore.php",
+          "sha256": "3e2f90531c065d0cbefb9dd5dffe13140c71f821d3753a82e1417dad59fe1f63",
+          "bytes": 10900,
+          "retrieved_at": "2026-10-27T04:32:00.901266+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "docs/docs/stores.md",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/docs/docs/stores.md",
+          "sha256": "14f85de94a100c032a3299b774608766dfae967ef5b90733d9970f569bd8f884",
+          "bytes": 11349,
+          "retrieved_at": "2026-10-27T04:32:01.058196+00:00"
+        },
+        {
+          "repository": "jez500/pricebuddy",
+          "commit": "f606128f5f723b70fe817362954e251c02143745",
+          "path": "app/Dto/Insights/ListingHistory.php",
+          "url": "https://raw.githubusercontent.com/jez500/pricebuddy/f606128f5f723b70fe817362954e251c02143745/app/Dto/Insights/ListingHistory.php",
+          "sha256": "2adc87f9ad8eb23de4b63a7544644ff962fab33e3ddd48132909b867c2147d76",
+          "bytes": 482,
+          "retrieved_at": "2026-10-27T04:32:01.087158+00:00"
+        }
+      ]
+    },
+    {
+      "category": "self_hosted_event_automation_platform",
+      "license_verified": "MIT license text read",
+      "fit": "Good reference for durable event and job uniqueness; too general to replace our price model directly.",
+      "verified_features": [
+        {
+          "claim": "WebsiteAgent fetches HTML/XML/JSON/text with CSS/XPath/JSON paths or regex extraction and requires row extractors to produce matching counts.",
+          "source_urls": [
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/models/agents/website_agent.rb"
+          ]
+        },
+        {
+          "claim": "on_change mode compares complete payloads against bounded previous events, extends matching event expiry rather than creating a duplicate; all/merge modes create each event.",
+          "source_urls": [
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/models/agents/website_agent.rb"
+          ]
+        },
+        {
+          "claim": "AgentCheckJob uses per-agent execution locking; opt-in uniqueness_key allows queue duplicate suppression; duplicate enqueue violates DB unique constraint and is converted to explicit enqueue error. Failed job releases uniqueness_key.",
+          "source_urls": [
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/jobs/agent_check_job.rb",
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/config/initializers/delayed_job_uniqueness_key.rb",
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/spec/initializers/delayed_job_uniqueness_key_spec.rb"
+          ]
+        },
+        {
+          "claim": "WebsiteAgent working state uses expected event cadence and absence of recent error logs; this is operational health rather than exact price freshness.",
+          "source_urls": [
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/models/agents/website_agent.rb"
+          ]
+        },
+        {
+          "claim": "Ruby >= 3.4 / Rails 8.1 application with delayed_job and database adapter dependencies; reviewed WebsiteAgent uses Faraday and Nokogiri, not a JavaScript browser engine.",
+          "source_urls": [
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/Gemfile",
+            "https://github.com/huginn/huginn/blob/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/models/agents/website_agent.rb"
+          ]
+        }
+      ],
+      "adopt_independent_design": [
+        "Keep stable identity and database-backed uniqueness for scheduled work, including across restarts/workers.",
+        "Distinguish collector health from business price/stock change, and avoid treating unchanged price as failure."
+      ],
+      "do_not_assume": [
+        "Generic extracted events are not a ready normalized price history.",
+        "No live retailer, exact variant or historical coverage verification for this project.",
+        "Do not simply use change-only event rows as daily coverage evidence."
+      ],
+      "repository": "huginn/huginn",
+      "url": "https://github.com/huginn/huginn",
+      "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+      "metadata": {
+        "default_branch": "master",
+        "pushed_at": "2026-10-26T13:59:48Z",
+        "archived": false,
+        "stargazers_count": 50153
+      },
+      "sources": [
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/README.md",
+          "sha256": "e52d6bf256d7f0ca1605421a032da0fa1e553d1d9c48c6acbd8b38340dfbb7cc",
+          "bytes": 10295,
+          "retrieved_at": "2026-10-27T04:31:09.161763+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/LICENSE",
+          "sha256": "54cb9b6e54a1c64b79d707ee26593b179363d67b17e9f7fb213004f76192ba4e",
+          "bytes": 1098,
+          "retrieved_at": "2026-10-27T04:31:09.238684+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "Gemfile",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/Gemfile",
+          "sha256": "48f66af8f52f12ee060ace091ed02cfa51b17022bdb6360d91e5679b97c3948c",
+          "bytes": 4841,
+          "retrieved_at": "2026-10-27T04:31:09.230881+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "app/models/agents/website_agent.rb",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/models/agents/website_agent.rb",
+          "sha256": "2204e4aad1d4ca1dbf666e3bc4c1f090e6e7cc570b1d0eff893382840b73eb06",
+          "bytes": 31298,
+          "retrieved_at": "2026-10-27T04:31:09.292896+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "app/jobs/agent_check_job.rb",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/app/jobs/agent_check_job.rb",
+          "sha256": "4378eb2d4c8f08d907cf25530ceb6415515aa03a39e993157ba588a93638caaa",
+          "bytes": 601,
+          "retrieved_at": "2026-10-27T04:31:09.326498+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "config/initializers/delayed_job_uniqueness_key.rb",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/config/initializers/delayed_job_uniqueness_key.rb",
+          "sha256": "d0a4020696f2245ee82cce8df86ba32ff1659495af3ddbdec5f9817768c678f7",
+          "bytes": 1453,
+          "retrieved_at": "2026-10-27T04:31:09.337353+00:00"
+        },
+        {
+          "repository": "huginn/huginn",
+          "commit": "2b1eb20cb657b86ca52378c75fc4176a3815c524",
+          "path": "spec/initializers/delayed_job_uniqueness_key_spec.rb",
+          "url": "https://raw.githubusercontent.com/huginn/huginn/2b1eb20cb657b86ca52378c75fc4176a3815c524/spec/initializers/delayed_job_uniqueness_key_spec.rb",
+          "sha256": "50841393746d73f1c59724b28c1f1c72cefee64eb2e331b46421979ba191550e",
+          "bytes": 5828,
+          "retrieved_at": "2026-10-27T04:31:09.383410+00:00"
+        }
+      ]
+    }
+  ]
+}

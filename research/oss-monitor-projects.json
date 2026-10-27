@@ -1,0 +1,491 @@
+{
+  "researched_at": "2026-10-27T04:33:42.645705+00:00",
+  "scope": [
+    "US/USD"
+  ],
+  "method": "GitHub public metadata plus pinned maintainer source/license inspection. No unreviewed project code executed, no installation or benchmark, no external notifications. Stars are descriptive only.",
+  "historical_prices_acquired": 0,
+  "projects": [
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "url": "https://github.com/dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "pushed_at": "2026-10-26T16:30:30Z",
+      "archived": false,
+      "stars_at_retrieval": 35316,
+      "stars_not_a_quality_score": true,
+      "validation_level": "Maintainer source and license read at pinned commit; not installed or runtime-benchmarked.",
+      "us_arcteryx_retailer_success_verified": false,
+      "license": {
+        "finding": "Apache-2.0",
+        "source_path": "LICENSE"
+      },
+      "fit": "Best complete page-monitoring service candidate if browser automation, UI/API and notification integrations are wanted; retain our exact-variant parser and historical database.",
+      "verified_capabilities": [
+        {
+          "claim": "Separate requests and Playwright fetchers; browser steps and REST API described in maintainer README and actual Playwright fetcher code.",
+          "source_paths": [
+            "README.md",
+            "changedetectionio/content_fetchers/playwright.py"
+          ]
+        },
+        {
+          "claim": "requests fetcher uses urllib3 Retry for connection/read failures, status=0, backoff_factor=0.5; environment default retry count is6 in code, despite stale comment saying3.",
+          "source_paths": [
+            "changedetectionio/content_fetchers/requests.py"
+          ],
+          "line_start": 62,
+          "line_end": 83
+        },
+        {
+          "claim": "Worker stores last_error and consecutive_filter_failures, with configurable filter-failure notification threshold.",
+          "source_paths": [
+            "changedetectionio/worker.py"
+          ],
+          "line_start": 269,
+          "line_end": 320
+        },
+        {
+          "claim": "Watch persists timestamped snapshot history in watch-specific files/index; notification service integrates Apprise.",
+          "source_paths": [
+            "changedetectionio/model/Watch.py",
+            "changedetectionio/notification_service.py",
+            "changedetectionio/notification/handler.py"
+          ]
+        }
+      ],
+      "limitations": [
+        {
+          "claim": "Restock processor declares SINGLE product; fast JSON-LD extraction recursively picks first price, first availability and first currency without checking SKU/color/size. It must not replace our multi-variant price identity checks.",
+          "source_paths": [
+            "changedetectionio/processors/restock_diff/processor.py",
+            "changedetectionio/processors/restock_diff/pure_python_extractor.py"
+          ],
+          "line_start": 212,
+          "line_end": 260
+        },
+        {
+          "claim": "Historical snapshots begin when captured; no examined code establishes pre-monitoring US Arc'teryx price history or exact SKU365/90-day coverage.",
+          "source_paths": [
+            "changedetectionio/model/Watch.py"
+          ]
+        },
+        {
+          "claim": "Adopting whole service adds a service/browser/notification configuration layer; no performance claim was measured.",
+          "source_paths": [
+            "README.md",
+            "changedetectionio/content_fetchers/playwright.py"
+          ]
+        }
+      ],
+      "decision": "Keep as optional future dynamic-page collection backend. Borrow separation of fetcher failures from price extraction and source-health diagnostics now. Do not copy broad first-price extraction or migrate the active monitor wholesale.",
+      "metadata_inspected_at": "2026-10-27T04:33:42.645019+00:00"
+    },
+    {
+      "repository": "thp/urlwatch",
+      "url": "https://github.com/thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "pushed_at": "2026-07-10T08:56:34Z",
+      "archived": false,
+      "stars_at_retrieval": 3147,
+      "stars_not_a_quality_score": true,
+      "validation_level": "Maintainer source and license read at pinned commit; not installed or runtime-benchmarked.",
+      "us_arcteryx_retailer_success_verified": false,
+      "license": {
+        "finding": "BSD-3-Clause-style text in COPYING; GitHub API reports NOASSERTION, so finding is from the actual license text.",
+        "source_path": "COPYING"
+      },
+      "fit": "Small mature command-line page-diff engine; useful scheduling/reporting model, but not a retail SKU database.",
+      "verified_capabilities": [
+        {
+          "claim": "UrlJob sends If-None-Match from stored ETag and If-Modified-Since from prior timestamp; retries-after-error/ignore_cached avoid stale cache.",
+          "source_paths": [
+            "lib/urlwatch/jobs.py"
+          ],
+          "line_start": 300,
+          "line_end": 322
+        },
+        {
+          "claim": "Worker distinguishes HTTP304 unchanged, retry-threshold-suppressed failures, reportable errors, changed and new content; stored tries reset on recovery. max_tries is reporting suppression across runs, not immediate HTTP retries.",
+          "source_paths": [
+            "lib/urlwatch/worker.py"
+          ],
+          "line_start": 65,
+          "line_end": 115
+        },
+        {
+          "claim": "BrowserJob uses Playwright and optional locator wait_for; snapshot storage tracks cached content/history for comparisons.",
+          "source_paths": [
+            "lib/urlwatch/jobs.py",
+            "lib/urlwatch/storage.py"
+          ],
+          "line_start": 431,
+          "line_end": 465
+        }
+      ],
+      "limitations": [
+        {
+          "claim": "Generic page data/diffs have no built-in Arc'teryx exact SKU, stock/new/public-price qualification or our daily-minimum statistics.",
+          "source_paths": [
+            "lib/urlwatch/jobs.py",
+            "lib/urlwatch/worker.py"
+          ]
+        },
+        {
+          "claim": "Neither conditional304 nor old content matches prove a new price/stock observation at the current time. Preserve retrieval/cache evidence separately if adapting.",
+          "source_paths": [
+            "lib/urlwatch/worker.py"
+          ]
+        },
+        {
+          "claim": "No independent historical retail dataset acquired; source was read, not installed/run.",
+          "source_paths": [
+            "README.md"
+          ]
+        }
+      ],
+      "decision": "Reference the failure/recovery state machine; avoid replacing dedicated price storage with text-change history. Conditional requests are a later optimization requiring explicit revalidation provenance.",
+      "metadata_inspected_at": "2026-10-27T04:33:42.645430+00:00"
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "url": "https://github.com/mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "pushed_at": "2026-10-26T01:19:17Z",
+      "archived": false,
+      "stars_at_retrieval": 50,
+      "stars_not_a_quality_score": true,
+      "validation_level": "Maintainer source and license read at pinned commit; not installed or runtime-benchmarked.",
+      "us_arcteryx_retailer_success_verified": false,
+      "license": {
+        "finding": "MIT for webchanges code, plus retained BSD-3-Clause-style redistribution notice for inherited urlwatch source. GitHub API reports NOASSERTION.",
+        "source_path": "LICENSE.md"
+      },
+      "fit": "Best directly actionable collection-resilience reference among these three for the current Python application.",
+      "verified_capabilities": [
+        {
+          "claim": "Parses Retry-After numeric seconds and HTTP-date values. HTTP429/500/502/503/504 become transient exceptions, while retry policy separately classifies transport failures.",
+          "source_paths": [
+            "webchanges/jobs/_url.py"
+          ],
+          "line_start": 116,
+          "line_end": 135
+        },
+        {
+          "claim": "retrieve_with_retries only retries transient errors. retry_wait applies server Retry-After up to60seconds, otherwise exponential1/2/4... capped30seconds. It blocks with time.sleep, not persistent scheduling.",
+          "source_paths": [
+            "webchanges/jobs/_url.py"
+          ],
+          "line_start": 900,
+          "line_end": 973
+        },
+        {
+          "claim": "Worker activates configured same_site_delay for jobs sharing network location; all later same-host jobs receive configured delay. This is not a global durable rate limiter or strict minimum spacing.",
+          "source_paths": [
+            "webchanges/worker.py"
+          ],
+          "line_start": 59,
+          "line_end": 82
+        },
+        {
+          "claim": "SQLite snapshots preserve content/error attempts/ETag, with configurable max_snapshots pruning. Browser collector supports Playwright and explicit wait selectors/CDP configuration.",
+          "source_paths": [
+            "webchanges/storage/_sqlite3.py",
+            "webchanges/jobs/_browser.py"
+          ]
+        }
+      ],
+      "limitations": [
+        {
+          "claim": "Capping server Retry-After to60seconds can request earlier than a longer server instruction. We should preserve the server not-before time in scheduler rather than copy that cap.",
+          "source_paths": [
+            "webchanges/jobs/_url.py"
+          ]
+        },
+        {
+          "claim": "Generic snapshot retention/pruning does not establish full historical SKU prices. Existing exact-variant identity and no-gap-filling policy remain necessary.",
+          "source_paths": [
+            "webchanges/storage/_sqlite3.py"
+          ]
+        },
+        {
+          "claim": "No actual US Arc'teryx/REI fetch from this engine was run in this research; compatibility and runtime overhead remain unmeasured.",
+          "source_paths": [
+            "README.rst"
+          ]
+        }
+      ],
+      "decision": "Implement independent stdlib failure classification and durable per-host cooldown inspired by documented ideas, keeping server Retry-After accurate and keeping failed attempts out of price observations.",
+      "metadata_inspected_at": "2026-10-27T04:33:42.645699+00:00"
+    }
+  ],
+  "recommended_optimizations": [
+    {
+      "priority": 1,
+      "name": "Durable host cooldown and differentiated retries",
+      "basis": [
+        "mborsetti/webchanges:webchanges/jobs/_url.py",
+        "mborsetti/webchanges:webchanges/worker.py",
+        "dgtlmoon/changedetection.io:changedetectionio/content_fetchers/requests.py"
+      ],
+      "local_design": "Store per-host not-before state. Honor Retry-After on429/503, use bounded exponential backoff on eligible transient failures, avoid immediate retries for identity/parse/invalidURL errors, keep failed attempts out of price observations and do not bypass manual/forced checks. Schedule rather than sleep in the worker."
+    },
+    {
+      "priority": 2,
+      "name": "Source health and recovery visibility",
+      "basis": [
+        "thp/urlwatch:lib/urlwatch/worker.py",
+        "dgtlmoon/changedetection.io:changedetectionio/worker.py"
+      ],
+      "local_design": "Expose consecutive failures, failure category and next allowed retry time. Recovery clears failure state only after a verified successful quote; failures never imply restock or new-low and must not erase good historical observations."
+    },
+    {
+      "priority": 3,
+      "name": "Optional dynamic-page collector later",
+      "basis": [
+        "dgtlmoon/changedetection.io:changedetectionio/content_fetchers/playwright.py",
+        "thp/urlwatch:lib/urlwatch/jobs.py"
+      ],
+      "local_design": "Use a separately configured browser fetcher only for an otherwise supported public retailer page that requires JavaScript; preserve proxy/TLS and URL/redirect restrictions. Feed rendered HTML into our exact-SKU parser; browser availability alone does not justify replacing working HTTP collection or bypassing access restrictions."
+    }
+  ],
+  "implementation_policy": "Recommendations are independent implementation ideas, not copied third-party source. If future code is copied or components distributed, retain the relevant Apache/MIT/BSD notices and review component requirements.",
+  "sources": [
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/LICENSE",
+      "retrieved_at": "2026-10-27T04:31:06.551626+00:00",
+      "http_status": 200,
+      "sha256": "94819497b44fbfbbc93198af0eb1b20144098a96c10ab577e9a868bab26d3705",
+      "bytes": 11382
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/README.md",
+      "retrieved_at": "2026-10-27T04:31:06.541811+00:00",
+      "http_status": 200,
+      "sha256": "d29cb6f8183b4c2628caabc3927999745f6dce321eff5615028a935f1c5d19a4",
+      "bytes": 22274
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/content_fetchers/requests.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/content_fetchers/requests.py",
+      "retrieved_at": "2026-10-27T04:31:06.546468+00:00",
+      "http_status": 200,
+      "sha256": "c1203e847bc31d9b9fdbd6ba8238d63b77f8e1cf20505d4200a0baf9d74efa2a",
+      "bytes": 12931
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/content_fetchers/playwright.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/content_fetchers/playwright.py",
+      "retrieved_at": "2026-10-27T04:31:06.557213+00:00",
+      "http_status": 200,
+      "sha256": "c0b7aa8ecf1ca8d3f5a45f0a0e68e8d667b5c6346c64de64d77a33f2a5d046c0",
+      "bytes": 25091
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "path": "changedetectionio/update_worker.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/update_worker.py",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/notification_service.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/notification_service.py",
+      "retrieved_at": "2026-10-27T04:31:06.561956+00:00",
+      "http_status": 200,
+      "sha256": "5c5c1cec4bd5b4b1c94233f83859ae7fd80fa4da97c55817a6fc0a549f1d28d1",
+      "bytes": 27473
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "COPYING",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/COPYING",
+      "retrieved_at": "2026-10-27T04:31:06.742929+00:00",
+      "http_status": 200,
+      "sha256": "ae6be1e9c8e2ecde25aad872a858b999e95da880281e1bcfcd569b052f76806a",
+      "bytes": 1408
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/README.md",
+      "retrieved_at": "2026-10-27T04:31:06.819038+00:00",
+      "http_status": 200,
+      "sha256": "bab64fa052f0a6b38fa4cf5abed93d7bd70bcd5a5573656c8cd770898bbb993f",
+      "bytes": 1283
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "lib/urlwatch/jobs.py",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/lib/urlwatch/jobs.py",
+      "retrieved_at": "2026-10-27T04:31:06.831797+00:00",
+      "http_status": 200,
+      "sha256": "8338cfbd5832bd5a6dcdc3b5a96ae2b0346c8082cc6d69a3b51dc0d50c469125",
+      "bytes": 17833
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "lib/urlwatch/worker.py",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/lib/urlwatch/worker.py",
+      "retrieved_at": "2026-10-27T04:31:06.817083+00:00",
+      "http_status": 200,
+      "sha256": "a026bf10ea7d5c57919db6cc2b334b7411e47823b9b36ee2509cfb525a95d123",
+      "bytes": 5288
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "lib/urlwatch/storage.py",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/lib/urlwatch/storage.py",
+      "retrieved_at": "2026-10-27T04:31:06.817356+00:00",
+      "http_status": 200,
+      "sha256": "2f3ebca242285df5e48fb706c911ed3b1dae6d1a45bc02ebbaf1af6994e97334",
+      "bytes": 23475
+    },
+    {
+      "repository": "thp/urlwatch",
+      "commit": "645796df19f1a7a654e9e2c6b0f4cce181d88483",
+      "path": "docs/source/jobs.rst",
+      "url": "https://raw.githubusercontent.com/thp/urlwatch/645796df19f1a7a654e9e2c6b0f4cce181d88483/docs/source/jobs.rst",
+      "retrieved_at": "2026-10-27T04:31:06.825275+00:00",
+      "http_status": 200,
+      "sha256": "4912935d9b3f89356fc75d718b37c55db5129eae6a20e698b2b4d1f562debd88",
+      "bytes": 7911
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "LICENSE.md",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/LICENSE.md",
+      "retrieved_at": "2026-10-27T04:31:06.916714+00:00",
+      "http_status": 200,
+      "sha256": "60663353d8ad674cd3a7d829d56744293e22d15b739989793ab31e6119fc028d",
+      "bytes": 3282
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "README.rst",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/README.rst",
+      "retrieved_at": "2026-10-27T04:31:07.081395+00:00",
+      "http_status": 200,
+      "sha256": "b42981f06e68be541c6b74a88994b2fde716028df867c3d33400c5c6c87a27b5",
+      "bytes": 8443
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "webchanges/jobs/_url.py",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/webchanges/jobs/_url.py",
+      "retrieved_at": "2026-10-27T04:31:07.082248+00:00",
+      "http_status": 200,
+      "sha256": "60687b8ef41135b386efcfb8a310e6320aaa9606e159a83b8ed00fa5a710fffc",
+      "bytes": 49244
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "webchanges/jobs/_browser.py",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/webchanges/jobs/_browser.py",
+      "retrieved_at": "2026-10-27T04:31:07.106699+00:00",
+      "http_status": 200,
+      "sha256": "af8bf449e39babb5e4bf5026284960ebe2d99e10714e569b0851cf03cbd2d2c7",
+      "bytes": 48951
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "webchanges/worker.py",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/webchanges/worker.py",
+      "retrieved_at": "2026-10-27T04:31:07.044333+00:00",
+      "http_status": 200,
+      "sha256": "c8d1074d365c0e7cd16385668dba249487a595b4023116c5f90e1e28c52c9856",
+      "bytes": 15671
+    },
+    {
+      "repository": "mborsetti/webchanges",
+      "commit": "c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf",
+      "path": "webchanges/storage/_sqlite3.py",
+      "url": "https://raw.githubusercontent.com/mborsetti/webchanges/c2d7e5fae2e5af8380ddf3ea0c1772dc444a72cf/webchanges/storage/_sqlite3.py",
+      "retrieved_at": "2026-10-27T04:31:07.061688+00:00",
+      "http_status": 200,
+      "sha256": "c8bf724ad9cef7351d5920a0309e92d9dca4366da2445197b0a75cd203db4594",
+      "bytes": 21013
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/worker.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/worker.py",
+      "retrieved_at": "2026-10-27T04:32:05.919310+00:00",
+      "http_status": 200,
+      "sha256": "e7aa76269081752fd5625bda28b0d16ea0fde41325f88bd6b6415113b499c8f9",
+      "bytes": 48950
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/processors/restock_diff/processor.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/processors/restock_diff/processor.py",
+      "retrieved_at": "2026-10-27T04:32:05.920583+00:00",
+      "http_status": 200,
+      "sha256": "5e99fadd08dd127e5800773ac142a702c84a95ea05cb4816f012731c13953083",
+      "bytes": 35788
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/processors/restock_diff/pure_python_extractor.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/processors/restock_diff/pure_python_extractor.py",
+      "retrieved_at": "2026-10-27T04:32:05.907321+00:00",
+      "http_status": 200,
+      "sha256": "d86bae9a3e8795394cdf25092767039065406df2f218645b85b197ec905c7432",
+      "bytes": 10643
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/model/Watch.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/model/Watch.py",
+      "retrieved_at": "2026-10-27T04:32:05.919184+00:00",
+      "http_status": 200,
+      "sha256": "c60096465efed276b81c1c7307280ba01b14e56ec18f5adc286f5160a30306af",
+      "bytes": 61173
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/store/file_saving_datastore.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/store/file_saving_datastore.py",
+      "retrieved_at": "2026-10-27T04:32:05.910324+00:00",
+      "http_status": 200,
+      "sha256": "84bf0950ad9897e37ffe7e28bb7d0150f2e8dc079ae556ff2c98b99bb75ac57f",
+      "bytes": 20135
+    },
+    {
+      "repository": "dgtlmoon/changedetection.io",
+      "commit": "5305a34e31909d8d94488860b605773ba57c9f3f",
+      "path": "changedetectionio/notification/handler.py",
+      "url": "https://raw.githubusercontent.com/dgtlmoon/changedetection.io/5305a34e31909d8d94488860b605773ba57c9f3f/changedetectionio/notification/handler.py",
+      "retrieved_at": "2026-10-27T04:34:03.431468+00:00",
+      "http_status": 200,
+      "sha256": "65f588e2dd379c747f80989198b7d902117c09c4ee7996dee83515b2b0eb90b9",
+      "bytes": 28803
+    }
+  ]
+}

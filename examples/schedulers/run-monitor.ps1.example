@@ -1,0 +1,15 @@
+# Replace these absolute paths before saving as your private run-monitor.ps1.
+# Keep the Gmail app password in gmail.env, never in this script.
+$ErrorActionPreference = 'Stop'
+# Decode Python output and write redirected logs as UTF-8, including on Windows PowerShell 5.1.
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+$MonitorPython = 'C:\Path\To\Python\python.exe'
+$MonitorScript = 'C:\Path\To\arcteryx\scripts\run-monitor.py'
+$MonitorDatabase = 'C:\Path\To\arcteryx\data\prices.sqlite3'
+$MonitorCredentials = 'C:\Private\gmail.env'
+$MonitorLog = 'C:\Private\last-run.log'
+
+# Overwrite the previous log; preserve the runner's exit status for Task Scheduler.
+& $MonitorPython -X utf8 $MonitorScript --db $MonitorDatabase run-once --notify gmail --env-file $MonitorCredentials *> $MonitorLog
+exit $LASTEXITCODE

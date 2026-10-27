@@ -1,0 +1,291 @@
+{
+  "kind": "real_retailer_checks_and_reference_import",
+  "results": [
+    {
+      "watch_id": 5,
+      "watch": {
+        "url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "sku": "2286170079",
+        "color": "Alpine Blue",
+        "size": "XXL",
+        "interval_minutes": 60,
+        "label": "试点 · REI · Beta Jacket - Men's",
+        "rule": "new_low"
+      },
+      "result": {
+        "id": 5,
+        "url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+        "sku": "2286170079",
+        "color": "Alpine Blue",
+        "size": "XXL",
+        "label": "试点 · REI · Beta Jacket - Men's",
+        "market": "US",
+        "currency": "USD",
+        "product_key": "rei:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+        "variant_key": "variant:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+        "offer_key": "offer:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+        "enabled": true,
+        "rule": "new_low",
+        "target_price_minor": null,
+        "interval_minutes": 60,
+        "created_at": "2026-10-27T02:18:05.079032Z",
+        "updated_at": "2026-10-27T02:18:05.079032Z",
+        "last_checked_at": "2026-10-27T02:18:06.379740Z",
+        "last_success_at": "2026-10-27T02:18:06.379740Z",
+        "last_status": "ok",
+        "last_error": null,
+        "last_price_minor": 24983,
+        "last_availability": "in_stock",
+        "last_explicit_availability": "in_stock",
+        "next_due_at": "2026-10-27T03:18:06.379740Z",
+        "armed": 1,
+        "event_number": 0,
+        "event_threshold_minor": null,
+        "config_version": 1,
+        "retailer_key": "rei",
+        "retailer_name": "REI Co-op",
+        "stale": false,
+        "status": "ok",
+        "availability": "in_stock",
+        "current_price_minor": 24983,
+        "current_price": 24983,
+        "last_checked": "2026-10-27T02:18:06.379740Z",
+        "last_success": "2026-10-27T02:18:06.379740Z",
+        "checking": false,
+        "metrics": {
+          "scope": {
+            "product_key": "rei:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+            "variant_key": "variant:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+            "market": "US",
+            "currency": "USD",
+            "condition": "new",
+            "availability": "in_stock",
+            "price_type": "public",
+            "tax_shipping_included": false,
+            "retailer_key": "rei",
+            "offer_key": "offer:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d"
+          },
+          "as_of": "2026-10-27T02:18:06.379740Z",
+          "window_policy": "UTC calendar days including as_of date; observations after as_of excluded",
+          "history": {
+            "first_observed_at": "2026-10-27T02:18:06.376106Z",
+            "last_observed_at": "2026-10-27T02:18:06.376106Z",
+            "observation_count": 1,
+            "observed_days": 1,
+            "proven_lifetime_history": false
+          },
+          "observed_all_time_min": {
+            "price_minor": 24983,
+            "observed_at": "2026-10-27T02:18:06.376106Z",
+            "captured_at": "2026-10-27T02:18:06.376106Z",
+            "retailer_key": "rei",
+            "offer_key": "offer:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+            "source_type": "retailer_page",
+            "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens"
+          },
+          "lowest_365d": {
+            "price_minor": 24983,
+            "observed_at": "2026-10-27T02:18:06.376106Z",
+            "captured_at": "2026-10-27T02:18:06.376106Z",
+            "retailer_key": "rei",
+            "offer_key": "offer:da46e21f336750fe6359294e85f31aebbca12d40c7368b96c5b0889546942b3d",
+            "source_type": "retailer_page",
+            "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens"
+          },
+          "coverage_365d": {
+            "window_start": "2025-10-28T00:00:00.000000Z",
+            "expected_days": 365,
+            "observed_days": 1,
+            "observation_count": 1
+          },
+          "average_daily_low_90d": {
+            "method": "arithmetic mean of UTC daily minimum prices across eligible retailers",
+            "window_start": "2026-07-30T00:00:00.000000Z",
+            "expected_days": 90,
+            "observed_days": 1,
+            "missing_days": 89,
+            "observation_count": 1,
+            "complete_day_coverage": false,
+            "sum_daily_min_minor": 24983,
+            "mean_minor": "24983.000000",
+            "display_minor": 24983,
+            "daily_minima": [
+              {
+                "day": "2026-10-27",
+                "price_minor": 24983
+              }
+            ]
+          },
+          "limitations": [
+            "Recorded minima are not proof of the lowest price ever sold.",
+            "Missing dates are excluded from the mean; no zero or forward-fill imputation.",
+            "The as_of UTC date can be incomplete; full day coverage does not prove continuous monitoring.",
+            "Prices exclude tax, shipping, coupons, memberships, bundles, and used goods."
+          ]
+        },
+        "check_status": "ok",
+        "alert": null,
+        "checks": [
+          {
+            "stage": "primary",
+            "status": "ok",
+            "error": null,
+            "quote": {
+              "captured_at": "2026-10-27T02:18:06.376106Z",
+              "source_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens",
+              "availability": "in_stock",
+              "price_minor": 24983,
+              "evidence_sha256": "76d791b5aec0defee7f59b0d894d25ae56674938a6b02327ba829de20434f6ee",
+              "observed_at": "2026-10-27T02:18:06.376106Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "watch_id": 6,
+      "watch": {
+        "url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "sku": "2433320090",
+        "color": "Shincha",
+        "size": "XL",
+        "interval_minutes": 60,
+        "label": "试点 · REI · Atom Insulated Hoody - Women's",
+        "rule": "new_low"
+      },
+      "result": {
+        "id": 6,
+        "url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+        "sku": "2433320090",
+        "color": "Shincha",
+        "size": "XL",
+        "label": "试点 · REI · Atom Insulated Hoody - Women's",
+        "market": "US",
+        "currency": "USD",
+        "product_key": "rei:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+        "variant_key": "variant:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+        "offer_key": "offer:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+        "enabled": true,
+        "rule": "new_low",
+        "target_price_minor": null,
+        "interval_minutes": 60,
+        "created_at": "2026-10-27T02:18:06.382523Z",
+        "updated_at": "2026-10-27T02:18:06.382523Z",
+        "last_checked_at": "2026-10-27T02:18:07.548592Z",
+        "last_success_at": "2026-10-27T02:18:07.548592Z",
+        "last_status": "ok",
+        "last_error": null,
+        "last_price_minor": 14983,
+        "last_availability": "in_stock",
+        "last_explicit_availability": "in_stock",
+        "next_due_at": "2026-10-27T03:18:07.548592Z",
+        "armed": 1,
+        "event_number": 0,
+        "event_threshold_minor": null,
+        "config_version": 1,
+        "retailer_key": "rei",
+        "retailer_name": "REI Co-op",
+        "stale": false,
+        "status": "ok",
+        "availability": "in_stock",
+        "current_price_minor": 14983,
+        "current_price": 14983,
+        "last_checked": "2026-10-27T02:18:07.548592Z",
+        "last_success": "2026-10-27T02:18:07.548592Z",
+        "checking": false,
+        "metrics": {
+          "scope": {
+            "product_key": "rei:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+            "variant_key": "variant:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+            "market": "US",
+            "currency": "USD",
+            "condition": "new",
+            "availability": "in_stock",
+            "price_type": "public",
+            "tax_shipping_included": false,
+            "retailer_key": "rei",
+            "offer_key": "offer:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886"
+          },
+          "as_of": "2026-10-27T02:18:07.548592Z",
+          "window_policy": "UTC calendar days including as_of date; observations after as_of excluded",
+          "history": {
+            "first_observed_at": "2026-10-27T02:18:07.545566Z",
+            "last_observed_at": "2026-10-27T02:18:07.545566Z",
+            "observation_count": 1,
+            "observed_days": 1,
+            "proven_lifetime_history": false
+          },
+          "observed_all_time_min": {
+            "price_minor": 14983,
+            "observed_at": "2026-10-27T02:18:07.545566Z",
+            "captured_at": "2026-10-27T02:18:07.545566Z",
+            "retailer_key": "rei",
+            "offer_key": "offer:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+            "source_type": "retailer_page",
+            "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens"
+          },
+          "lowest_365d": {
+            "price_minor": 14983,
+            "observed_at": "2026-10-27T02:18:07.545566Z",
+            "captured_at": "2026-10-27T02:18:07.545566Z",
+            "retailer_key": "rei",
+            "offer_key": "offer:5ad4008e3ef1e1f25f1a67a0517eb2696c858e4e4c54e28d95eb88661c2e2886",
+            "source_type": "retailer_page",
+            "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens"
+          },
+          "coverage_365d": {
+            "window_start": "2025-10-28T00:00:00.000000Z",
+            "expected_days": 365,
+            "observed_days": 1,
+            "observation_count": 1
+          },
+          "average_daily_low_90d": {
+            "method": "arithmetic mean of UTC daily minimum prices across eligible retailers",
+            "window_start": "2026-07-30T00:00:00.000000Z",
+            "expected_days": 90,
+            "observed_days": 1,
+            "missing_days": 89,
+            "observation_count": 1,
+            "complete_day_coverage": false,
+            "sum_daily_min_minor": 14983,
+            "mean_minor": "14983.000000",
+            "display_minor": 14983,
+            "daily_minima": [
+              {
+                "day": "2026-10-27",
+                "price_minor": 14983
+              }
+            ]
+          },
+          "limitations": [
+            "Recorded minima are not proof of the lowest price ever sold.",
+            "Missing dates are excluded from the mean; no zero or forward-fill imputation.",
+            "The as_of UTC date can be incomplete; full day coverage does not prove continuous monitoring.",
+            "Prices exclude tax, shipping, coupons, memberships, bundles, and used goods."
+          ]
+        },
+        "check_status": "ok",
+        "alert": null,
+        "checks": [
+          {
+            "stage": "primary",
+            "status": "ok",
+            "error": null,
+            "quote": {
+              "captured_at": "2026-10-27T02:18:07.545566Z",
+              "source_url": "https://www.rei.com/product/243332/arcteryx-atom-insulated-hoody-womens",
+              "availability": "in_stock",
+              "price_minor": 14983,
+              "evidence_sha256": "bb29fbb9d15c2b66f8df6cdf804627aa7d2e8a34acb840431b71dff362210e14",
+              "observed_at": "2026-10-27T02:18:07.545566Z"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "historical_references": 12,
+  "historical_metric_backfills": 0,
+  "total_watches": 6,
+  "total_price_observations": 10
+}

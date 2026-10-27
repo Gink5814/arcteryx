@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- SYNTHETIC TEST FIXTURE. This is not copied from an Arc'teryx page and
+     contains no observed or historical retail price. -->
+<html><head><title>Synthetic exact-variant schema test</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ProductGroup",
+  "name": "Synthetic Shell",
+  "availability": "https://schema.org/InStock",
+  "offers": {"@type": "AggregateOffer", "lowPrice": "1.00", "priceCurrency": "USD"},
+  "hasVariant": [
+    {
+      "@type": "Product", "sku": "SYNTHETIC-BLACK-M", "color": "Black", "size": "M",
+      "offers": {
+        "@type": "Offer", "price": "499.95", "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock",
+        "itemCondition": "https://schema.org/NewCondition"
+      }
+    },
+    {
+      "@type": "Product", "sku": "SYNTHETIC-BLACK-L", "color": "Black", "size": "L",
+      "offers": {
+        "@type": "Offer", "price": "249.95", "priceCurrency": "USD",
+        "availability": "https://schema.org/OutOfStock",
+        "itemCondition": "https://schema.org/NewCondition"
+      }
+    }
+  ]
+}
+</script></head><body>Synthetic prices, not real observations.</body></html>
