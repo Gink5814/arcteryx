@@ -17,6 +17,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .scope import MARKET, CURRENCY
+
 
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_JSONLD_DOCUMENTS = 32
@@ -24,13 +26,13 @@ MAX_JSONLD_NODES = 20000
 MAX_DISCOVERY_VARIANTS = 256
 REQUEST_TIMEOUT_SECONDS = 20
 ALLOWED_HOSTS = frozenset({'arcteryx.com', 'outlet.arcteryx.com', 'rei.com', 'www.rei.com'})
-MARKET_CURRENCIES = {'US': 'USD', 'CA': 'CAD'}
+MARKET_CURRENCIES = {MARKET: CURRENCY}
 
 
 def supported_retailers() -> list[dict]:
     """Sources with a live-verified parser, not a promise of every product."""
     return [
-        {'key': 'arcteryx-official', 'name': "Arc'teryx official", 'markets': ['US', 'CA'],
+        {'key': 'arcteryx-official', 'name': "Arc'teryx official", 'markets': [MARKET],
          'hosts': ['arcteryx.com', 'outlet.arcteryx.com'],
          'example_url': 'https://arcteryx.com/us/en/shop/mens/beta-jacket-0868'},
         {'key': 'rei', 'name': 'REI Co-op', 'markets': ['US'],
@@ -48,7 +50,7 @@ class CollectorError(Exception):
 
 
 def validate_product_url(url: str) -> dict:
-    """Restrict requests to verified North American retailer product paths."""
+    """Restrict requests to verified United States retailer product paths."""
     if not isinstance(url, str) or len(url) > 4096 or re.search(r'\s|[\x00-\x1f\x7f]', url):
         raise CollectorError('invalid_url', 'URL must be a bounded HTTPS URL without whitespace')
     try:
@@ -68,10 +70,10 @@ def validate_product_url(url: str) -> dict:
         market, host = 'US', 'www.rei.com'
         retailer = {'retailer_key': 'rei', 'retailer_name': 'REI Co-op'}
     else:
-        match = re.fullmatch(r'/(us/en|ca/en|ca/fr)/shop/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+/?', parsed.path)
+        match = re.fullmatch(r'/us/en/shop/([A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+/?', parsed.path)
         if not match:
-            raise CollectorError('invalid_url', 'Expected a US English or Canadian English/French product path')
-        market = 'US' if match.group(1) == 'us/en' else 'CA'
+            raise CollectorError('invalid_url', 'Only US English product paths are supported')
+        market = MARKET
         host = parsed.hostname
         retailer = {'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official"}
     normalized = urlunsplit(('https', host, parsed.path, parsed.query, ''))

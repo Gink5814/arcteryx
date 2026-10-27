@@ -195,20 +195,56 @@ class MonitorTest(unittest.TestCase):
 
     def test_markets_are_inferred_and_cannot_be_overridden(self):
         us = self.create()
-        ca = self.create(url=CA_URL)
-        self.assertEqual((ca['market'],ca['currency']), ('CA','CAD'))
-        self.assertNotEqual(us['product_key'], ca['product_key'])
+        self.assertEqual((us['market'],us['currency']), ('US','USD'))
+        with self.assertRaisesRegex(ValueError, 'Only US/USD'):
+            self.create(url=CA_URL)
         with self.assertRaisesRegex(ValueError, 'unknown watch fields'):
             self.create(currency='CAD')
         with self.assertRaisesRegex(ValueError, 'unsupported'):
             self.create(url='https://example.com/us/en/shop/shell')
         at = BASE
         q = quote(45000, at=at, source_url=CA_URL,market='CA',currency='CAD')
-        result = check_watch(self.connection, ca['id'], SequenceFetcher(q,q), now=at)
-        self.assertEqual(result['metrics']['scope']['currency'], 'CAD')
-        self.assertEqual(result['alert']['currency'], 'CAD')
+        result = check_watch(self.connection, us['id'], SequenceFetcher(q), now=at)
+        self.assertEqual(result['status'], 'parse_error')
+        self.assertIsNone(result['alert'])
         us_public = list_watches(self.connection, now=at)[0]
         self.assertIsNone(us_public['metrics']['observed_all_time_min'])
+
+    def test_legacy_canadian_watch_is_retired_without_deleting_prices_or_alerts(self):
+        watch = self.create()
+        self.check(watch)
+        # Simulate a database created by the former US/CA release.
+        with self.connection:
+            self.connection.execute('''UPDATE monitor_watches SET url=?,market='CA',currency='CAD',
+                lease_token='legacy-lease',lease_until='2999-01-01T00:00:00Z' WHERE id=?''', (CA_URL,watch['id']))
+            self.connection.execute("UPDATE offers SET market='CA',currency='CAD'")
+            self.connection.execute('UPDATE price_observations SET source_url=?', (CA_URL,))
+            self.connection.execute("UPDATE monitor_alerts SET currency='CAD',url=?", (CA_URL,))
+        originals = {table: [tuple(row) for row in self.connection.execute(f'SELECT * FROM {table}')]
+                     for table in ('price_observations', 'monitor_alerts', 'offers', 'products', 'variants')}
+        version = self.connection.execute('SELECT config_version FROM monitor_watches').fetchone()[0]
+        fetcher = SequenceFetcher()
+        # Both manual and scheduled entry points reject it even before migration.
+        self.assertEqual(run_due(self.connection, fetcher, now=BASE, force=True), [])
+        with self.assertRaisesRegex(ValueError, 'Only US/USD'):
+            check_watch(self.connection, watch['id'], fetcher, now=BASE)
+        with self.assertRaisesRegex(ValueError, 'Only US/USD'):
+            update_watch(self.connection, watch['id'], {'enabled': True})
+        self.assertEqual(fetcher.calls, 0)
+        self.connection.close()
+        self.connection = initialize_monitor(self.path)
+        retired = dict(self.connection.execute('SELECT * FROM monitor_watches').fetchone())
+        self.assertEqual(retired['enabled'], 0)
+        self.assertEqual(retired['config_version'], version + 1)
+        self.assertIsNone(retired['lease_token'])
+        self.assertIsNone(retired['lease_until'])
+        self.assertEqual(list_watches(self.connection), [])
+        self.assertEqual(list_alerts(self.connection), [])
+        for table, records in originals.items():
+            self.assertEqual([tuple(row) for row in self.connection.execute(f'SELECT * FROM {table}')], records)
+        self.connection.close()
+        self.connection = initialize_monitor(self.path)
+        self.assertEqual(dict(self.connection.execute('SELECT * FROM monitor_watches').fetchone()), retired)
 
     def test_quote_identity_mismatch_is_parse_failure_not_a_price(self):
         watch = self.create()

@@ -1,20 +1,17 @@
-# 第三方零售商与历史资料
+# 美国第三方零售商与历史资料
 
-本次扩展将 REI 美国站接入实际监控，并把可追溯的旧促销报道保存到独立历史资料表。网页中存在一个旧日期或一个低价，不代表它能作为当前关注的同款同尺码历史价格。
+当前产品范围仅限 US / USD。REI 美国站已接入实际监控，可追溯的美国旧促销报道保存到独立历史资料表。网页中存在一个旧日期或一个低价，不代表它能作为当前关注的同款同尺码历史价格。
 
 ## 当前零售商范围
 
 | 来源 | 地区 / 币种 | 接入状态 |
 | --- | --- | --- |
-| Arc'teryx 官网 | US / USD、CA / CAD | 保留原有变体采集与监控 |
-| Arc'teryx Outlet | US / USD、CA / CAD | 解析器支持；美国实际验证，加拿大仍待验证 |
+| Arc'teryx 美国官网 | US / USD | 已验证变体采集与监控 |
+| Arc'teryx 美国 Outlet | US / USD | 已验证变体采集与监控 |
 | REI Co-op | US / USD | 新增真实商品页验证；按 REI 自身的 SKU、颜色和尺码采集 |
-| MEC | CA / CAD | 本次请求返回 HTTP 403，尚未接入 |
-| Altitude Sports | CA / CAD | 已查询品牌、搜索及旧品牌路径，未取得可验证的 Arc'teryx 变体报价；不能据此推断全站销售或库存状态 |
 | Backcountry | US / USD | 本次查询没有取得可验证商品，不作为已接入来源 |
-| Valhalla Pure、Monod Sports、Sporting Life 等 | CA / CAD | 当前环境访问受限，未绕过限制，尚未验证 |
 
-具体请求、时间、页面哈希与结果见 [零售商验证记录](../research/third-party-retailers.json)。REI 的商品页可以在工作台直接添加，例如：
+具体请求、时间、页面哈希与结果见 [零售商验证记录](../research/third-party-retailers.json)。该文件保留此前调查快照，里面的加拿大候选已移出当前计划。REI 的商品页可以在工作台直接添加，例如：
 
 ```text
 https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
@@ -22,9 +19,9 @@ https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
 
 来源接入要求完整、明确的商品变体数据。价格范围、缺少尺码的父商品报价、会员专享价格、未知库存或非 Arc'teryx 商品不会被当成有效现货报价。来源返回错误时保留历史，并显示检查失败。
 
-2026-10-27 UTC 的工作库验证新增两个 REI 关注：男款 Beta / Alpine Blue / XXL（SKU `2286170079`）当次 USD 249.83，女款 Atom Hoody / Shincha / XL（SKU `2433320090`）当次 USD 149.83，均为现货。试点用于验证，不代表用户已选择这些款式或尺码，也不是价格承诺。当前共有 6 个关注，12 条历史报道已入库，合格的存档回填数为 0；完整结果见 [工作库验证](../research/retailer-history-live-validation.json)。
+2026-10-27 UTC 的工作库验证新增两个 REI 关注：男款 Beta / Alpine Blue / XXL（SKU `2286170079`）当次 USD 249.83，女款 Atom Hoody / Shincha / XL（SKU `2433320090`）当次 USD 149.83，均为现货。试点用于验证，不代表用户已选择这些款式或尺码，也不是价格承诺。当前保留 5 个美国关注，旧版加拿大关注已停用并隐藏；12 条美国历史报道已入库，合格的存档回填数为 0。[此前工作库验证](../research/retailer-history-live-validation.json) 保留收窄范围前的完整审计快照。
 
-REI SKU 与官网 SKU 不互换。当前每个 URL + SKU 独立监控，不因标题相似就跨店合并，也不直接比较 USD 和 CAD。已有官网关注的身份和历史保持兼容。
+REI SKU 与官网 SKU 不互换。当前每个 URL + SKU 独立监控，不因标题相似就跨店合并。所有在用报价均为 USD。已有美国官网关注的身份和历史保持兼容；旧加拿大数据保留供审计，不再采集、展示或产生提醒。
 
 ## 两类历史记录
 
@@ -40,6 +37,6 @@ REI SKU 与官网 SKU 不互换。当前每个 URL + SKU 独立监控，不因�
 
 ## 网络与后续验证
 
-在原有配置基础上，环境草稿增加了 `web.archive.org`、`archive.org`，以及 `vpo.ca`、`monodsports.com`、`sportinglife.ca` 的根域和 `www` 域，并显式补充 `www.rei.com`。草稿保存不等于当前网络已放行；需要在环境设置中审阅、保存并发布，再重试受限来源。域名放行也不保证网站提供足够的变体或历史数据。
+后续网络验证聚焦美国来源与 `web.archive.org`、`archive.org` 存档服务。加拿大商家不再是待接入项，也不需要为本项目开放其访问。环境草稿保存不等于当前网络已放行；需要在环境设置中审阅、保存并发布，再重试受限的美国历史来源。域名放行也不保证网站提供足够的变体或历史数据。
 
 不绕过登录、验证码、网络策略或付费 API。当前没有 Keepa API 凭据，未声称取得 Amazon 历史或第三方完整价格曲线。

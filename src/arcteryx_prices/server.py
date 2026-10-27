@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
                 with connection(self.server.database_path) as database:
                     state = {'watches': list_watches(database), 'alerts': list_alerts(database),
                              'csrf_token': self.server.csrf_token,
-                             'scope': ['US/USD', 'CA/CAD'], 'notifications': 'in_app',
+                             'scope': ['US/USD'], 'notifications': 'in_app',
                              'historical_evidence': list_evidence(database),
                              'supported_retailers': supported_retailers()}
                 self.json(200, state)

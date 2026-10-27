@@ -99,7 +99,7 @@ class HistoryTest(unittest.TestCase):
 
     def test_source_registry_currency_dates_digest_and_trust_flags_fail_closed(self):
         for changes in (
-            {'currency': 'CAD'}, {'market': 'GB'}, {'price_minor': True}, {'price_minor': 0},
+            {'currency': 'CAD'}, {'market': 'CA', 'currency': 'CAD'}, {'market': 'GB'}, {'price_minor': True}, {'price_minor': 0},
             {'date_precision': 'day', 'observed_at': '2025-09-01T12:00:00Z'},
             {'date_precision': 'second', 'observed_at': '2025-09-01T12:00:00'},
             {'observed_at': '2027-01-01'}, {'captured_at': '2999-01-01T00:00:00Z'},
@@ -110,11 +110,29 @@ class HistoryTest(unittest.TestCase):
             {'source_url': 'https://slickdeals.net/f/123\x00'},
             {'source_url': 'https://slickdeals.net/f/123\n'},
             {'source_url': 'https://slickdeals.net.evil.invalid/f/123'},
+            {'source_url': 'https://forums.redflagdeals.com/synthetic'},
+            {'source_kind': 'retailer_record', 'source_url': 'https://www.mec.ca/en/product/synthetic'},
+            {'source_kind': 'retailer_record', 'source_url': URL.replace('/us/en/', '/ca/en/')},
             {'included_in_metrics': True}, {'trusted': True}, {'source_kind': 'verified'},
         ):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 import_evidence(self.db, payload(reference(**changes)))
         self.assertEqual(self.count('historical_evidence'), 0)
+        self.assertEqual(self.count('price_observations'), 0)
+
+    def test_legacy_canadian_reference_is_preserved_but_not_listed_or_backfilled(self):
+        import_evidence(self.db, payload(reference()))
+        original = dict(self.db.execute('SELECT * FROM historical_evidence').fetchone())
+        legacy = json.loads(original['payload_json']) | {'market': 'CA', 'currency': 'CAD'}
+        with self.db:
+            self.db.execute('UPDATE historical_evidence SET payload_json=?', (json.dumps(legacy),))
+        before = dict(self.db.execute('SELECT * FROM historical_evidence').fetchone())
+        self.assertEqual(list_evidence(self.db), [])
+        with patch('arcteryx_prices.history._read_archive') as fetch:
+            with self.assertRaisesRegex(ValueError, 'Only US/USD'):
+                backfill_evidence(self.db, legacy['evidence_key'], self.watch['id'])
+            fetch.assert_not_called()
+        self.assertEqual(before, dict(self.db.execute('SELECT * FROM historical_evidence').fetchone()))
         self.assertEqual(self.count('price_observations'), 0)
 
     def test_exact_archive_backfill_adds_one_sparse_point_without_current_quote_or_alert(self):

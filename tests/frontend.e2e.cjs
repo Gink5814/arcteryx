@@ -61,6 +61,7 @@ async function handler(req, res) {
     return send(200, { watches: fixture.watches, alerts: fixture.alerts,
       historical_evidence: fixture.historical_evidence, csrf_token: token,
       supported_retailers: [
+        // Deliberately emulate a legacy API cache; the UI must narrow its scope.
         { key: 'arcteryx-official', name: "Arc'teryx official", markets: ['US', 'CA'] },
         { key: 'rei', name: 'REI Co-op', markets: ['US'] },
       ],
@@ -109,7 +110,8 @@ async function handler(req, res) {
         Object.assign(value, { status: 'ok', stale: false, current_price_minor: 12000,
           availability: 'in_stock', last_success_at: stamp, last_checked_at: stamp,
           metrics: metrics(12000) });
-        fixture.alerts.push({ id: 1, watch_id: value.id, label: value.label, market: 'US',
+        // The legacy backend alert table did not carry a market column.
+        fixture.alerts.push({ id: 1, watch_id: value.id, label: value.label,
           currency: 'USD', price_minor: 12000, rule: 'target', created_at: stamp, url: value.url });
       } else {
         // Retaining a stale numeric field deliberately checks the UI's guard.
@@ -151,6 +153,17 @@ async function main() {
     await page.locator('#add-watch').click();
     assert.equal(await page.locator('#watch-url').evaluate(node => node === document.activeElement), true);
     assert.match(await page.locator('#supported-source-hint').innerText(), /REI Co-op（美国）/);
+    assert.doesNotMatch(await page.locator('#supported-source-hint').innerText(), /加拿大|CAD/);
+    await page.locator('#watch-url').fill('https://arcteryx.com/ca/en/shop/mens/synthetic-browser-fixture');
+    assert.equal(await page.locator('#discover-variants').isDisabled(), true, 'Canadian URLs cannot be discovered');
+    await page.locator('#manual-fields summary').click();
+    await page.locator('#watch-sku').fill('SYNTHETIC-CA');
+    await page.locator('#watch-color').fill('Synthetic Black');
+    await page.locator('#watch-size').fill('M');
+    await page.locator('#watch-target').fill('123.45');
+    await page.locator('#save-watch').click();
+    assert.match(await page.locator('#form-error').innerText(), /美国具体商品链接/);
+    assert.equal(fixture.requests.length, 0, 'Canadian form submission never reaches discovery or watch API');
     await page.getByLabel('商品链接', { exact: true }).fill('https://arcteryx.com/us/en/shop/mens/synthetic-browser-fixture');
     await page.locator('#discover-variants').click();
     await page.getByText('已找到 1 个明确变体。').waitFor();
@@ -193,6 +206,10 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: '设置提醒 SYNTHETIC US SHELL', exact: true }).evaluate(node => node === document.activeElement), true, 'saving settings returns keyboard focus to its watch');
 
     fixture.watches.push(watch(2, 'CA', 15000, 'SYNTHETIC CA SHELL'), watch(3, 'US', 26000, 'SYNTHETIC US EXPENSIVE'));
+    fixture.alerts.push({ id: 2, watch_id: 2, label: 'SYNTHETIC CA ALERT', market: 'CA',
+      currency: 'CAD', price_minor: 15000, rule: 'target', created_at: stamp, url: fixture.watches[1].url });
+    fixture.alerts.push({ id: 3, watch_id: 999, label: 'SYNTHETIC UNKNOWN MARKET ALERT',
+      currency: 'USD', price_minor: 10000, rule: 'target', created_at: stamp });
     Object.assign(fixture.watches[2], { retailer_key: 'rei', retailer_name: 'REI Co-op',
       url: 'https://www.rei.com/product/12345/arcteryx-synthetic-browser-fixture' });
     fixture.watches[0].metrics = metrics(12000, ['2026-10-24', '2026-10-26']);
@@ -203,25 +220,25 @@ async function main() {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     }
     await refresh();
-    await page.locator('.watch-card').nth(2).waitFor();
+    await page.locator('.watch-card').nth(1).waitFor();
     await page.locator('#sort-watches').selectOption('price_asc');
     const identities = await page.locator('.watch-card').evaluateAll(cards => cards.map(card => ({
       name: card.querySelector('.watch-title').textContent,
       currency: card.querySelector('.market-badge').textContent,
       price: card.querySelector('.metric-current .metric-value').textContent,
     })));
-    const transitions = identities.slice(1).filter((item, index) => item.currency !== identities[index].currency).length;
-    assert.ok(transitions <= 1, 'price sorting must group currencies instead of treating USD and CAD as one scale');
+    assert.equal(identities.length, 2, 'legacy Canadian watches are excluded from the dashboard');
+    assert.ok(identities.every(item => item.currency === 'US · USD'));
     assert.deepEqual(identities.filter(item => item.currency.includes('USD')).map(item => item.name), ['SYNTHETIC US SHELL', 'SYNTHETIC US EXPENSIVE']);
-    assert.equal(identities.find(item => item.currency.includes('CAD')).price.includes('150.00'), true);
+    assert.equal(await page.locator('#nav-watch-count').innerText(), '2');
+    assert.equal(await page.locator('#nav-alert-count').innerText(), '1', 'known US marketless alerts remain visible, but Canadian and unscoped USD alerts are excluded');
     if (screenshots) {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: path.join(screenshots, 'desktop-synthetic.png'), fullPage: true });
     }
 
-    await page.getByRole('button', { name: /^加拿大\s+CAD$/ }).click();
-    assert.equal(await page.locator('.watch-card').count(), 1);
-    assert.match(await page.locator('.watch-card').innerText(), /SYNTHETIC CA SHELL/);
+    assert.equal(await page.locator('[data-market]').count(), 0, 'the US-only dashboard has no market chooser');
+    assert.doesNotMatch(await page.locator('#watch-list').innerText(), /SYNTHETIC CA SHELL|CAD/);
     await page.locator('#watch-search').fill('does-not-exist-synthetic');
     assert.equal(await page.locator('.watch-card').count(), 0);
     await page.locator('#reset-filters').click();
@@ -234,9 +251,9 @@ async function main() {
     await page.locator('#watch-search').fill('rei');
     assert.equal(await page.locator('.watch-card').count(), 1, 'retailer names are searchable');
     await page.locator('#reset-filters').click();
-    await page.locator('.watch-card').nth(2).waitFor();
+    await page.locator('.watch-card').nth(1).waitFor();
     await page.locator('#status-filter').selectOption('in_stock');
-    assert.equal(await page.locator('.watch-card').count(), 3);
+    assert.equal(await page.locator('.watch-card').count(), 2);
     await page.locator('#watch-search').fill('US EXPENSIVE');
     assert.equal(await page.locator('.watch-card').count(), 1);
     await page.locator('#reset-filters').click();
@@ -264,6 +281,10 @@ async function main() {
         publisher: 'SYNTHETIC unsafe link fixture', source_kind: 'deal_report', observed_at: '2025-10-20', date_precision: 'day',
         captured_at: stamp, price_minor: 10000, market: 'CA', currency: 'CAD', retailer_name: 'SYNTHETIC STORE',
         product_name: 'SYNTHETIC CA HISTORICAL DEAL', included_in_metrics: false, price_type: 'member', watch_id: null },
+      { evidence_key: 'synthetic-unsafe-us-deal', source_url: 'javascript:alert(1)',
+        publisher: 'SYNTHETIC unsafe US link fixture', source_kind: 'deal_report', observed_at: '2025-10-20', date_precision: 'day',
+        captured_at: stamp, price_minor: 10000, market: 'US', currency: 'USD', retailer_name: 'SYNTHETIC STORE',
+        product_name: 'SYNTHETIC UNSAFE US HISTORICAL DEAL', included_in_metrics: false, price_type: 'member', watch_id: null },
       { evidence_key: 'synthetic-verified-archive', source_url: fixture.watches[0].url,
         publisher: 'SYNTHETIC archived retailer', source_kind: 'retailer_archive', observed_at: '2026-10-24T12:00:00Z', date_precision: 'second',
         captured_at: stamp, price_minor: 12000, market: 'US', currency: 'USD', retailer_name: "Arc'teryx official",
@@ -287,17 +308,19 @@ async function main() {
     assert.match(await deal.locator('blockquote').innerText(), /<script>/);
     assert.equal(await page.evaluate(() => window.syntheticUnsafe), undefined, 'source excerpts are plain text');
     assert.equal(await deal.locator('a').getAttribute('href'), 'https://slickdeals.net/f/12345-synthetic-fixture');
-    assert.equal(await page.locator('[data-evidence-key="synthetic-ca-deal"] a').count(), 0, 'unsafe evidence URLs cannot become links');
+    assert.equal(await page.locator('[data-evidence-key="synthetic-ca-deal"]').count(), 0, 'legacy Canadian history is excluded');
+    assert.equal(await page.locator('[data-evidence-key="synthetic-unsafe-us-deal"] a').count(), 0, 'unsafe evidence URLs cannot become links');
+    assert.match(await page.locator('[data-evidence-key="synthetic-unsafe-us-deal"]').innerText(), /会员专享/);
     assert.match(await page.locator('[data-evidence-key="synthetic-verified-archive"]').innerText(), /已计入对应关注的历史统计/);
     assert.equal(await page.locator('#history-content .history-chart circle').count(), 2, 'reference-only reports never add points to the selected variant chart');
-    await page.locator('#evidence-market').selectOption('CA');
-    assert.equal(await page.locator('.evidence-card').count(), 1);
-    assert.match(await page.locator('.evidence-card').innerText(), /CAD/);
-    await page.locator('#evidence-market').selectOption('all');
+    assert.equal(await page.locator('.evidence-card').count(), 3);
+    assert.equal(await page.locator('#evidence-market').count(), 0);
+    assert.doesNotMatch(await page.locator('#historical-evidence-list').innerText(), /CAD|SYNTHETIC CA HISTORICAL DEAL/);
     await page.locator('button[data-view="alerts"]').click();
     await page.locator('#view-alerts').waitFor({ state: 'visible' });
     assert.match(await page.locator('#alert-list').innerText(), /SYNTHETIC US SHELL/);
     assert.match(await page.locator('#alert-list').innerText(), /USD/);
+    assert.doesNotMatch(await page.locator('#alert-list').innerText(), /CAD|SYNTHETIC CA ALERT|SYNTHETIC UNKNOWN MARKET ALERT/);
     await page.locator('button[data-view="overview"]').click();
 
     await page.getByRole('button', { name: '立即检查 SYNTHETIC US SHELL', exact: true }).click();
@@ -312,7 +335,7 @@ async function main() {
     fixture.offline = true;
     await refresh();
     await page.locator('#connection-message').waitFor({ state: 'visible' });
-    assert.deepEqual(await page.locator('#watch-list .metric-current .metric-value').allTextContents(), ['—', '—', '—'], 'service disconnection hides all current prices');
+    assert.deepEqual(await page.locator('#watch-list .metric-current .metric-value').allTextContents(), ['—', '—'], 'service disconnection hides all current prices');
     assert.equal(await page.locator('#fresh-count').innerText(), '0');
     assert.equal(await page.locator('#add-watch').isDisabled(), true, 'disconnection disables creation until state and CSRF are refreshed');
     assert.equal(await page.locator('#watch-list button:enabled').count(), 0, 'disconnection disables all watch mutations');
@@ -356,7 +379,7 @@ async function main() {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'retailer filters fit mobile layout');
     assert.deepEqual(fixture.failures, []);
     assert.deepEqual(errors, [], 'no JavaScript or CSP runtime failures');
-    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, scoped currency sorting, historical source provenance and exclusions, sparse history, alerts, stale/offline prices, mobile and keyboard focus.');
+    console.log('PASS: synthetic browser official/REI discovery/create/edit, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, alerts, stale/offline prices, mobile and keyboard focus.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

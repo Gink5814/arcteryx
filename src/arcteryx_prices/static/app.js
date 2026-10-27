@@ -9,7 +9,6 @@ const ui = {
 let state = { watches: [], alerts: [], historical_evidence: [], supported_retailers: [], csrf_token: null };
 let loaded = false;
 let connected = false;
-let market = "all";
 let sequence = 0;
 let feedbackTimer;
 let discoveryBusy = false;
@@ -19,7 +18,6 @@ let activeView = "overview";
 let searchTerm = "";
 let statusFilter = "all";
 let retailerFilter = "all";
-let evidenceMarket = "all";
 let sortMode = "recent";
 let selectedHistoryId = null;
 let settingsWatchId = null;
@@ -35,18 +33,17 @@ const expandedHistory = new Set();
 const cardCache = new Map();
 const alertCache = new Map();
 const evidenceHosts = new Set([
-  "slickdeals.net", "www.slickdeals.net", "forums.redflagdeals.com", "gearjunkie.com",
+  "slickdeals.net", "www.slickdeals.net", "gearjunkie.com",
   "www.switchbacktravel.com", "www.outdoorgearlab.com", "web.archive.org",
   "arcteryx.com", "outlet.arcteryx.com", "www.rei.com", "rei.com",
-  "www.backcountry.com", "backcountry.com", "www.mec.ca", "mec.ca",
-  "www.altitude-sports.com", "altitude-sports.com",
+  "www.backcountry.com", "backcountry.com",
 ]);
 const ruleNames = { target: "达到目标价", new_low: "已观测新低", restock: "重新有货" };
 const viewLabels = {
   overview: ["关注清单", "盯住具体的颜色与尺码，让好价格有迹可循。"],
   history: ["价格记录", "查看真实观测记录，了解每个价格背后的数据覆盖。"],
   alerts: ["提醒中心", "每条提醒都经过价格与库存复核，保留触发时的记录。"],
-  guide: ["购买指南", "从用途、尺码到购买渠道，做好北美购物前的功课。"],
+  guide: ["购买指南", "从用途、尺码到购买渠道，做好美国购物前的功课。"],
 };
 
 function setText(id, value) {
@@ -101,7 +98,7 @@ function setView(value, writeHash = true) {
   });
   setText("view-title", viewLabels[activeView][0]);
   setText("view-subtitle", viewLabels[activeView][1]);
-  document.title = `${viewLabels[activeView][0]} · North 北美价格观察`;
+  document.title = `${viewLabels[activeView][0]} · North 美国价格观察`;
   if (writeHash && location.hash !== `#${activeView}`) history.pushState(null, "", `#${activeView}`);
   if (loaded && activeView === "history") renderHistory();
 }
@@ -114,9 +111,10 @@ function node(tag, className, text) {
 }
 
 function money(minor, currency) {
+  if (currency && currency !== "USD") return "—";
   if (minor === null || minor === undefined || !Number.isFinite(Number(minor))) return "—";
   return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: currency === "CAD" ? "CAD" : "USD",
+    style: "currency", currency: "USD",
     currencyDisplay: "narrowSymbol", minimumFractionDigits: 2,
   }).format(Number(minor) / 100);
 }
@@ -135,9 +133,8 @@ function productLocation(value) {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
     if (["arcteryx.com", "outlet.arcteryx.com"].includes(url.hostname)) {
-      if (!/^\/(us\/en|ca\/(en|fr))\/shop\/.+/.test(url.pathname)) return null;
-      const market = url.pathname.startsWith("/us/") ? "US" : "CA";
-      return { url: url.href, market, currency: market === "US" ? "USD" : "CAD", retailer: "Arc'teryx 官网 / Outlet" };
+      if (!/^\/us\/en\/shop\/.+/.test(url.pathname)) return null;
+      return { url: url.href, market: "US", currency: "USD", retailer: "Arc'teryx 官网 / Outlet" };
     }
     if (["rei.com", "www.rei.com"].includes(url.hostname) && /^\/product\/[A-Za-z0-9]+\/arcteryx-[A-Za-z0-9-]+\/?$/.test(url.pathname)) {
       url.hostname = "www.rei.com";
@@ -254,10 +251,27 @@ async function api(path, options = {}) {
   return body;
 }
 
+function usRecords(records) {
+  return Array.isArray(records) ? records.filter(record => record.market === "US" && record.currency === "USD") : [];
+}
+
 async function refresh() {
   const current = ++sequence;
   try {
     const result = await api("/api/state");
+    // Old API caches may still contain other markets; keep them outside every view.
+    result.watches = usRecords(result.watches).filter(watch => safeProductURL(watch.url));
+    const usWatchIds = new Set(result.watches.map(watch => watch.id));
+    // Older alert rows had currency but no market. A known US watch establishes
+    // their scope; the currency alone is insufficient to infer a market.
+    result.alerts = (Array.isArray(result.alerts) ? result.alerts : []).filter(alert =>
+      alert.currency === "USD" && (alert.market === "US" ||
+        (alert.market === undefined && usWatchIds.has(alert.watch_id))))
+      .map(alert => ({ ...alert, market: "US" }));
+    result.historical_evidence = usRecords(result.historical_evidence);
+    result.supported_retailers = (Array.isArray(result.supported_retailers) ? result.supported_retailers : [])
+      .filter(source => Array.isArray(source.markets) && source.markets.includes("US"))
+      .map(source => ({ ...source, markets: ["US"] }));
     if (current !== sequence) return;
     const changed = !loaded || !connected ||
       signature(result.watches || []) !== signature(state.watches) ||
@@ -482,7 +496,6 @@ function needsAttention(watch) {
 function filteredWatches() {
   const query = searchTerm.trim().toLocaleLowerCase();
   const watches = state.watches.filter((watch) => {
-    if (market !== "all" && watch.market !== market) return false;
     if (retailerFilter !== "all" && retailerKey(watch) !== retailerFilter) return false;
     if (query && ![watch.label, watch.sku, watch.color, watch.size, retailerName(watch)].filter(Boolean).join(" ").toLocaleLowerCase().includes(query)) return false;
     if (statusFilter === "in_stock" && !hasCurrentPrice(watch)) return false;
@@ -495,9 +508,6 @@ function filteredWatches() {
   watches.sort((a, b) => {
     if (sortMode === "name") return byName(a, b);
     if (sortMode === "price_asc") {
-      // Comparing nominal CAD and USD prices would imply a nonexistent FX rule.
-      const group = String(a.market).localeCompare(String(b.market));
-      if (group) return group;
       const priceA = hasCurrentPrice(a) ? a.current_price_minor : Infinity;
       const priceB = hasCurrentPrice(b) ? b.current_price_minor : Infinity;
       return priceA === priceB ? byName(a, b) : priceA - priceB;
@@ -511,15 +521,11 @@ function filteredWatches() {
 
 function resetFilters() {
   const restoreSearch = ui.list.contains(document.activeElement);
-  market = "all"; searchTerm = ""; statusFilter = "all"; retailerFilter = "all"; sortMode = "recent";
+  searchTerm = ""; statusFilter = "all"; retailerFilter = "all"; sortMode = "recent";
   if ($("watch-search")) $("watch-search").value = "";
   if ($("status-filter")) $("status-filter").value = "all";
   if ($("retailer-filter")) $("retailer-filter").value = "all";
   if ($("sort-watches")) $("sort-watches").value = "recent";
-  document.querySelectorAll("button[data-market]").forEach((button) => {
-    const selected = button.dataset.market === "all";
-    button.classList.toggle("active", selected); button.setAttribute("aria-pressed", String(selected));
-  });
   if (loaded) renderWatches();
   if (restoreSearch) $("watch-search")?.focus({ preventScroll: true });
 }
@@ -537,7 +543,7 @@ function renderWatches() {
     icon.setAttribute("aria-hidden", "true");
     const hasAny = state.watches.length > 0;
     empty.append(icon, node("h3", "", hasAny ? "没有符合筛选条件的关注项" : "从你想要的那件装备开始"),
-      node("p", "", hasAny ? "尝试调整市场、零售商、状态或搜索词，查看其他关注的装备。" : "添加商品链接和具体颜色、尺码。监控成功后，当前报价和价格历史会自动出现在这里。"));
+      node("p", "", hasAny ? "尝试调整零售商、状态或搜索词，查看其他关注的装备。" : "添加商品链接和具体颜色、尺码。监控成功后，当前报价和价格历史会自动出现在这里。"));
     const button = node("button", "button button-secondary", hasAny ? "清除筛选条件" : "＋ 添加第一个关注");
     button.type = "button"; button.disabled = !hasAny && !state.csrf_token;
     button.addEventListener("click", hasAny ? resetFilters : openForm);
@@ -579,7 +585,7 @@ function renderRetailerOptions() {
 function renderEvidence() {
   const container = $("historical-evidence-list");
   if (!container) return;
-  const records = state.historical_evidence.filter((record) => evidenceMarket === "all" || record.market === evidenceMarket);
+  const records = state.historical_evidence;
   const key = signature({ records, connected });
   if (key === evidenceSignature) return;
   evidenceSignature = key;
@@ -710,10 +716,9 @@ function render() {
   if (state.supported_retailers.length) {
     const sources = state.supported_retailers.map((source) => {
       const name = source.key === "arcteryx-official" ? "Arc’teryx 官网与 Outlet" : source.name;
-      const markets = (Array.isArray(source.markets) ? source.markets : []).map((item) => ({ US: "美国", CA: "加拿大" })[item]).filter(Boolean);
-      return `${name}（${markets.join(" / ")}）`;
+      return `${name}（美国）`;
     });
-    setText("supported-source-hint", `粘贴北美商品链接，再选择具体颜色和尺码。当前支持：${sources.join("、")}。`);
+    setText("supported-source-hint", `粘贴美国商品链接，再选择具体颜色和尺码。当前支持：${sources.join("、")}。`);
   }
   setText("active-count", state.watches.filter((watch) => watch.enabled).length);
   setText("fresh-count", state.watches.filter(hasCurrentPrice).length);
@@ -812,8 +817,8 @@ async function saveSettings(event) {
 function updateForm() {
   const value = $("watch-url").value.trim(), location = productLocation(value), url = location?.url;
   const selectedMarket = location?.market;
-  const currency = location?.currency || "USD / CAD";
-  $("market-hint").textContent = selectedMarket ? `${location.retailer} · ${selectedMarket === "US" ? "美国" : "加拿大"}商品，价格以 ${currency} 统计。` : value ? "请填写已支持零售商的美国或加拿大具体商品链接。" : "市场与币种将根据商品链接确定。";
+  const currency = "USD";
+  $("market-hint").textContent = selectedMarket ? `${location.retailer} · 美国商品，价格以 ${currency} 统计。` : value ? "请填写已支持零售商的美国具体商品链接。" : "仅支持美国商品链接，价格以 USD 统计。";
   $("market-hint").classList.toggle("invalid", Boolean(value && !url));
   $("target-currency").textContent = currency;
   $("discover-variants").disabled = !url || !state.csrf_token || discoveryBusy;
@@ -908,10 +913,6 @@ $("retailer-filter")?.addEventListener("change", (event) => {
   retailerFilter = event.target.value;
   if (loaded) renderWatches();
 });
-$("evidence-market")?.addEventListener("change", (event) => {
-  evidenceMarket = event.target.value;
-  if (loaded) renderEvidence();
-});
 $("sort-watches")?.addEventListener("change", (event) => {
   sortMode = event.target.value;
   if (loaded) renderWatches();
@@ -964,14 +965,6 @@ $("variant-select").addEventListener("change", () => {
 for (const id of ["watch-sku", "watch-color", "watch-size"]) {
   $(id).addEventListener("invalid", () => { $("manual-fields").open = true; });
 }
-document.querySelectorAll("button[data-market]").forEach((button) => button.addEventListener("click", () => {
-  market = button.dataset.market;
-  document.querySelectorAll("button[data-market]").forEach((item) => {
-    const selected = item.dataset.market === market;
-    item.classList.toggle("active", selected); item.setAttribute("aria-pressed", String(selected));
-  });
-  if (loaded) renderWatches();
-}));
 ui.form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (ui.save.disabled) return;
@@ -981,7 +974,7 @@ ui.form.addEventListener("submit", async (event) => {
   ui.save.textContent = "正在保存…";
   try {
     const url = safeProductURL($("watch-url").value.trim());
-    if (!url) throw new Error("请使用已支持零售商的北美具体商品链接，完整支持范围见窗口说明。");
+    if (!url) throw new Error("请使用已支持零售商的美国具体商品链接，完整支持范围见窗口说明。");
     const rule = $("watch-rule").value;
     const target = rule === "new_low" ? null : priceToMinor($("watch-target").value);
     if (rule === "target" && target === null) throw new Error("请设置一个目标价。");

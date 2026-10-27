@@ -80,10 +80,6 @@ h1>span { color:#6f8d54; }
 .section-heading h2 { font-size:19px; letter-spacing:-.02em; font-weight:600; margin:0; }
 .heading-count { display:inline-block; font-size:11px; vertical-align:middle; padding:1px 7px; color:#6d8069; background:#e8eddf; border-radius:5px; margin-left:6px; font-weight:500; }
 .section-description { margin:4px 0 0; color:var(--muted); font-size:11px; }
-.market-filter { display:flex; padding:4px; border-radius:7px; background:#e9ece5; gap:3px; }
-.filter { background:transparent; border-radius:4px; color:#7c867a; font-size:11px; padding:7px 11px; }
-.filter>span { font-size:9px; margin-left:3px; opacity:.7; }
-.filter.active { background:#fff; color:var(--forest); box-shadow:0 1px 3px #1b301719; }
 .watch-toolbar { display:flex; justify-content:space-between; gap:14px; margin:0 0 17px; }
 .search-field { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--line); border-radius:7px; padding:0 12px; flex:1; min-width:150px; max-width:360px; }
 .search-field svg { height:16px; width:16px; color:#89978a; flex-shrink:0; }
@@ -158,7 +154,6 @@ h1>span { color:#6f8d54; }
 .history-panel .history-scroll { max-height:280px; }
 .historical-evidence { margin-top:38px; }
 .evidence-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-.evidence-controls select { max-width:100%; border:1px solid var(--line); border-radius:6px; padding:8px 10px; background:#fff; color:var(--forest); font-size:12px; }
 .evidence-list { display:grid; gap:14px; margin-top:18px; }
 .evidence-card { padding:22px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); min-width:0; }
 .evidence-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }
@@ -313,8 +308,6 @@ dialog::backdrop { background:#102b258f; backdrop-filter:blur(4px); }
   .summary-item small { font-size:9px; }
   .summary-item p { font-size:9px; }
   .section-heading h2 { font-size:18px; }
-  .market-filter { width:100%; margin-top:2px; }
-  .filter { flex:1; padding:7px 8px; font-size:11px; }
   .watch-toolbar { display:block; }
   .search-field { min-height:41px; }
   .toolbar-options { margin-top:10px; }

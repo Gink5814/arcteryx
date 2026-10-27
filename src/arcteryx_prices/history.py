@@ -17,6 +17,7 @@ from urllib.parse import urlsplit, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .database import canonical_time, import_observations, parse_time
+from .scope import in_scope, require_scope
 
 SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'history.sql'
 REQUIRED = {
@@ -28,11 +29,10 @@ REQUIRED = {
 OPTIONAL = {'model_code', 'sku', 'color', 'size', 'notes'}
 # A host being accepted here only permits storing a cited reference. It is NOT
 # sufficient to establish a price, condition, stock state or exact-variant match.
-REPORT_HOSTS = {'slickdeals.net', 'www.slickdeals.net', 'forums.redflagdeals.com',
+REPORT_HOSTS = {'slickdeals.net', 'www.slickdeals.net',
                 'gearjunkie.com', 'www.switchbacktravel.com', 'www.outdoorgearlab.com'}
 RETAILER_HOSTS = {'arcteryx.com', 'outlet.arcteryx.com', 'www.rei.com', 'rei.com',
-                  'www.backcountry.com', 'backcountry.com', 'www.mec.ca', 'mec.ca',
-                  'www.altitude-sports.com', 'altitude-sports.com'}
+                  'www.backcountry.com', 'backcountry.com'}
 
 
 def initialize_history(connection):
@@ -63,8 +63,11 @@ def _archive_identity(url):
     except ValueError as exc:
         raise ValueError('archive URL timestamp is invalid') from exc
     original = match[2] + ('?' + parsed.query if parsed.query else '')
-    from .collector import validate_product_url
-    location = validate_product_url(original)
+    from .collector import CollectorError, validate_product_url
+    try:
+        location = validate_product_url(original)
+    except CollectorError as exc:
+        raise ValueError('archived original URL must be a supported US product URL') from exc
     return canonical_time(instant), location
 
 
@@ -88,8 +91,7 @@ def _validate(record):
     normalized['notes'] = notes
     if type(record['price_minor']) is not int or not 0 < record['price_minor'] <= 2**63 - 1:
         raise ValueError('price_minor must be positive integer cents')
-    if (record['market'], record['currency']) not in {('US', 'USD'), ('CA', 'CAD')}:
-        raise ValueError('supported market/currency pairs are US/USD and CA/CAD')
+    require_scope(record)
     for field, allowed in {
         'source_kind': {'deal_report', 'retailer_record', 'retailer_archive'},
         'date_precision': {'day', 'second'},
@@ -120,6 +122,12 @@ def _validate(record):
         raise ValueError('report source host is not in the reviewed source registry')
     if kind == 'retailer_record' and host not in RETAILER_HOSTS:
         raise ValueError('retailer source host is not in the reviewed source registry')
+    if kind == 'retailer_record' and host in {'arcteryx.com', 'outlet.arcteryx.com', 'www.rei.com', 'rei.com'}:
+        from .collector import CollectorError, validate_product_url
+        try:
+            validate_product_url(record['source_url'])
+        except CollectorError as exc:
+            raise ValueError('retailer record must cite a supported US product URL') from exc
     if kind == 'retailer_archive':
         timestamp, location = _archive_identity(record['source_url'])
         if record['date_precision'] != 'second' or normalized['observed_at'] != timestamp:
@@ -169,6 +177,8 @@ def list_evidence(connection):
     result = []
     for row in connection.execute('SELECT * FROM historical_evidence ORDER BY observed_at DESC,id DESC'):
         record = json.loads(row['payload_json'])
+        if not in_scope(record):
+            continue
         included = row['observation_id'] is not None
         result.append(record | {'included_in_metrics': included, 'watch_id': row['watch_id'],
                                 'exclusion_reason': None if included else _exclusion(record),
@@ -222,6 +232,8 @@ def backfill_evidence(connection, evidence_key, watch_id):
         raise ValueError('historical evidence not found')
     evidence = json.loads(row['payload_json'])
     watch = _row(connection, watch_id)
+    require_scope(evidence)
+    require_scope(watch)
     if evidence['source_kind'] != 'retailer_archive':
         raise ValueError('only a primary retailer archive can enter exact-variant metrics')
     timestamp, location = _archive_identity(evidence['source_url'])

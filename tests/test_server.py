@@ -111,6 +111,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(current['metrics']['average_daily_low_90d']['observed_days'], 1)
         self.assertEqual(current['metrics']['average_daily_low_90d']['mean_minor'], '42000.000000')
         self.assertEqual(len(state['alerts']), 1)
+        self.assertEqual(state['alerts'][0]['market'], 'US')
+        self.assertEqual(state['alerts'][0]['currency'], 'USD')
         self.assertEqual(state['notifications'], 'in_app')
         self.request('POST', f"/api/watches/{watch['id']}/check", {})
         self.assertEqual(self.fetcher.call_count, 3)  # continuing sale is not re-alerted
@@ -168,6 +170,25 @@ class ServerTest(unittest.TestCase):
                 self.assertTrue(body)
         self.assertEqual(self.request('GET', '/not-found')[0], 404)
         self.fetcher.assert_not_called()
+
+    def test_us_only_api_rejects_canadian_requests_and_hides_retained_legacy_watch(self):
+        ca_url = PRODUCT_URL.replace('/us/en/', '/ca/en/')
+        self.assertEqual(self.request('POST', '/api/watches', self.payload(url=ca_url))[0], 400)
+        with patch('arcteryx_prices.collector._read_page') as fetch:
+            self.assertEqual(self.request('POST', '/api/discover', {'url': ca_url})[0], 422)
+            fetch.assert_not_called()
+        watch = self.create()
+        with sqlite3.connect(self.database_path) as database:
+            database.execute("UPDATE monitor_watches SET market='CA',currency='CAD',url=?", (ca_url,))
+        _, state, _ = self.request('GET', '/api/state')
+        self.assertEqual(state['scope'], ['US/USD'])
+        self.assertTrue(all(source['markets'] == ['US'] for source in state['supported_retailers']))
+        self.assertEqual(state['watches'], [])
+        self.assertEqual(self.request('PATCH', f"/api/watches/{watch['id']}", {'enabled': True})[0], 400)
+        self.assertEqual(self.request('POST', f"/api/watches/{watch['id']}/check", {})[0], 400)
+        self.fetcher.assert_not_called()
+        with sqlite3.connect(self.database_path) as database:
+            self.assertEqual(database.execute('SELECT COUNT(*),SUM(enabled) FROM monitor_watches').fetchone(), (1, 0))
 
     def test_host_origin_and_csrf_protection_reject_before_mutation(self):
         self.assertEqual(self.request('GET', '/api/state', headers={'Host': 'attacker.invalid'})[0], 403)

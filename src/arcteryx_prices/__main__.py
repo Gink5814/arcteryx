@@ -7,10 +7,11 @@ import sqlite3
 import threading
 
 from .database import import_observations, initialize, load_json, metrics
+from .scope import require_scope
 
 
 def main():
-    parser = argparse.ArgumentParser(description='US/Canada Arc’teryx price history and monitoring')
+    parser = argparse.ArgumentParser(description='US/USD Arc’teryx price history and monitoring')
     parser.add_argument('--db', default='data/prices.sqlite3', help='SQLite path, relative to current directory')
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('init', help='Create or validate the schema; does not seed historical prices')
@@ -75,7 +76,12 @@ def main():
             result = {'database': args.db, 'schema_version': 1,
                       'observations': connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0]}
         elif args.command == 'import':
-            result = import_observations(connection, load_json(args.json_file))
+            payload = load_json(args.json_file)
+            if isinstance(payload, dict) and isinstance(payload.get('observations'), list):
+                for record in payload['observations']:
+                    if isinstance(record, dict):
+                        require_scope(record)
+            result = import_observations(connection, payload)
         elif args.command == 'history-import':
             from .history import import_evidence
             result = import_evidence(connection, load_json(args.json_file))
@@ -86,6 +92,7 @@ def main():
             from .history import backfill_evidence
             result = backfill_evidence(connection, args.evidence_key, args.watch_id)
         elif args.command == 'metrics':
+            require_scope({'market': args.market, 'currency': args.currency})
             result = metrics(connection, product_key=args.product_key, variant_key=args.variant_key,
                              market=args.market, currency=args.currency, as_of=args.as_of,
                              retailer_key=args.retailer_key, offer_key=args.offer_key)

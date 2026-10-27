@@ -46,7 +46,7 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(validate_product_url(URL + '?color=Black&size=M#details'),
                          {'url': URL + '?color=Black&size=M', 'market': 'US', 'currency': 'USD',
                           'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official"})
-        self.assertEqual(validate_product_url('https://outlet.arcteryx.com/ca/fr/shop/mens/synthetic-shell')['currency'], 'CAD')
+        self.assertEqual(validate_product_url('https://outlet.arcteryx.com/us/en/shop/mens/synthetic-shell')['currency'], 'USD')
         self.assertEqual(validate_product_url(URL.replace('arcteryx.com', 'ARCTERYX.COM:443'))['url'], URL)
 
     def test_url_scope_blocks_ssrf_and_non_product_paths(self):
@@ -57,6 +57,8 @@ class CollectorTests(unittest.TestCase):
             'https://user:pass@arcteryx.com/us/en/shop/mens/shell',
             'https://arcteryx.com:8443/us/en/shop/mens/shell',
             'https://arcteryx.com/us/fr/shop/mens/shell',
+            'https://arcteryx.com/ca/en/shop/mens/shell',
+            'https://outlet.arcteryx.com/ca/fr/shop/mens/shell',
             'https://arcteryx.com/us/en/shop/mens',
             'https://arcteryx.com/us/en/shop/mens/%2e%2e/shell',
             'https://arcteryx.com/us/en/shop/../mens/shell',
@@ -64,6 +66,16 @@ class CollectorTests(unittest.TestCase):
         ):
             with self.subTest(url=bad):
                 self.assert_status('invalid_url', validate_product_url, bad)
+
+    def test_canadian_discovery_and_collection_fail_without_network(self):
+        for url in (URL.replace('/us/en/', '/ca/en/'),
+                    'https://outlet.arcteryx.com/ca/fr/shop/mens/synthetic-shell'):
+            with self.subTest(url=url), patch('arcteryx_prices.collector._read_page') as fetch:
+                self.assert_status('invalid_url', discover_variants, url)
+                self.assert_status('invalid_url', collect_quote,
+                                   WATCH | {'url': url, 'market': 'CA', 'currency': 'CAD'})
+                fetch.assert_not_called()
+        self.assertTrue(all(item['markets'] == ['US'] for item in supported_retailers()))
 
     def test_redirect_cannot_reach_external_local_or_cross_market_targets(self):
         handler = _StrictRedirectHandler('US')
@@ -125,7 +137,7 @@ class CollectorTests(unittest.TestCase):
         self.assert_status('identity_mismatch', _parse_quote, html(node), WATCH)
         node = product()
         node['offers']['url'] = 'https://arcteryx.com/ca/en/shop/mens/synthetic-shell'
-        self.assert_status('currency_mismatch', _parse_quote, html(node), WATCH)
+        self.assert_status('invalid_url', _parse_quote, html(node), WATCH)
 
     def test_decimal_price_no_rounding_or_negative_sentinels(self):
         for price, expected in (('499.99', 49999), (499, 49900), ('1.01', 101)):

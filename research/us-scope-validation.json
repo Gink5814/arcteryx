@@ -1,0 +1,38 @@
+{
+  "validated_at": "2026-10-27T03:45:53.638991+00:00",
+  "active_scope": [
+    "US/USD"
+  ],
+  "visible_us_watches": 5,
+  "visible_us_historical_references": 12,
+  "disabled_legacy_non_us_watches": 1,
+  "prior_price_observations_preserved": 16,
+  "canadian_discovery_http_status": 422,
+  "sources": [
+    {
+      "key": "arcteryx-official",
+      "name": "Arc'teryx official",
+      "markets": [
+        "US"
+      ],
+      "hosts": [
+        "arcteryx.com",
+        "outlet.arcteryx.com"
+      ],
+      "example_url": "https://arcteryx.com/us/en/shop/mens/beta-jacket-0868"
+    },
+    {
+      "key": "rei",
+      "name": "REI Co-op",
+      "markets": [
+        "US"
+      ],
+      "hosts": [
+        "rei.com",
+        "www.rei.com"
+      ],
+      "example_url": "https://www.rei.com/product/228617/arcteryx-beta-jacket-mens"
+    }
+  ],
+  "source_note": "Prior research snapshots retain original scope for audit; current product scope is US/USD only."
+}

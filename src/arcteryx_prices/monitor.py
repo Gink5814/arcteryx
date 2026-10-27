@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .database import canonical_time, import_observations, initialize, metrics, parse_time
+from .scope import MARKET, CURRENCY, require_scope
 
 
 MONITOR_SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'monitor.sql'
@@ -60,6 +61,14 @@ def initialize_monitor(db_path):
                     raise
     from .history import initialize_history
     initialize_history(connection)
+    # The product now supports US/USD only. Preserve old quotes and identities,
+    # but retire other watches and invalidate any old worker's lease atomically.
+    with connection:
+        connection.execute('''UPDATE monitor_watches SET enabled=0,
+            lease_token=NULL, lease_until=NULL, config_version=config_version+1,
+            updated_at=? WHERE (market<>? OR currency<>?)
+            AND (enabled<>0 OR lease_token IS NOT NULL OR lease_until IS NOT NULL)''',
+            (canonical_time(_now()), MARKET, CURRENCY))
     return connection
 
 
@@ -132,6 +141,7 @@ def create_watch(connection, payload):
     if set(payload) - allowed:
         raise ValueError(f'unknown watch fields: {sorted(set(payload)-allowed)}')
     url = _validate_url(_text(payload.get('url'), 'url', 2000))
+    require_scope(url)
     sku, color, size = (_text(payload.get(key), key) for key in ('sku', 'color', 'size'))
     label = _text(payload.get('label', f"Arc'teryx {sku} / {color} / {size}"), 'label')
     settings = _settings(payload, creating=True)
@@ -161,7 +171,8 @@ def create_watch(connection, payload):
 
 
 def list_watches(connection, now=None):
-    return [_public(connection, dict(row), now) for row in connection.execute('SELECT * FROM monitor_watches ORDER BY id')]
+    return [_public(connection, dict(row), now) for row in connection.execute(
+        'SELECT * FROM monitor_watches WHERE market=? AND currency=? ORDER BY id', (MARKET, CURRENCY))]
 
 
 def update_watch(connection, watch_id, payload):
@@ -171,6 +182,7 @@ def update_watch(connection, watch_id, payload):
     with connection:
         connection.execute('BEGIN IMMEDIATE')
         old = _row(connection, watch_id)
+        require_scope(old)
         merged = old | settings
         if merged['rule'] == 'target' and merged['target_price_minor'] is None:
             raise ValueError('target rule requires target_price_minor')
@@ -191,7 +203,10 @@ def update_watch(connection, watch_id, payload):
 
 
 def list_alerts(connection):
-    return [dict(row) for row in connection.execute('SELECT * FROM monitor_alerts ORDER BY id DESC')]
+    return [dict(row) for row in connection.execute('''SELECT a.*,w.market AS market FROM monitor_alerts a
+        JOIN monitor_watches w ON w.id=a.watch_id
+        WHERE w.market=? AND w.currency=? AND a.currency=? ORDER BY a.id DESC''',
+        (MARKET, CURRENCY, CURRENCY))]
 
 
 def _quote(watch, value):
@@ -286,15 +301,16 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
     instant = _now(now)
     stamp = canonical_time(instant)
     watch = _row(connection, watch_id)
+    require_scope(watch)
     if not watch['enabled']:
         return _public(connection, watch, instant) | {'check_status': 'paused', 'alert': None, 'checks': []}
     token = uuid.uuid4().hex
     due_stamp = canonical_time(due_before) if due_before is not None else None
     with connection:
         acquired = connection.execute('''UPDATE monitor_watches SET lease_token=?,lease_until=?
-            WHERE id=? AND enabled=1 AND (lease_until IS NULL OR lease_until<=?)
+            WHERE id=? AND enabled=1 AND market=? AND currency=? AND (lease_until IS NULL OR lease_until<=?)
             AND (? IS NULL OR next_due_at IS NULL OR next_due_at<=?)''',
-            (token, canonical_time(instant + timedelta(minutes=10)), watch_id, stamp,
+            (token, canonical_time(instant + timedelta(minutes=10)), watch_id, MARKET, CURRENCY, stamp,
              due_stamp, due_stamp)).rowcount
     if not acquired:
         current = _row(connection, watch_id)
@@ -400,8 +416,8 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
 def run_due(connection, fetcher=None, now=None, force=False):
     instant = _now(now)
     due = connection.execute('''SELECT id FROM monitor_watches
-        WHERE enabled=1 AND (? OR next_due_at IS NULL OR next_due_at<=?) ORDER BY id''',
-        (int(bool(force)), canonical_time(instant))).fetchall()
+        WHERE enabled=1 AND market=? AND currency=? AND (? OR next_due_at IS NULL OR next_due_at<=?) ORDER BY id''',
+        (MARKET, CURRENCY, int(bool(force)), canonical_time(instant))).fetchall()
     results = [_check_watch(connection, row['id'], fetcher=fetcher, now=now,
                             due_before=None if force else instant) for row in due]
     return [result for result in results if result['check_status'] != 'not_due']
