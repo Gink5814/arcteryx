@@ -28,6 +28,7 @@ MAX_JSONLD_NODES = 20000
 MAX_DISCOVERY_VARIANTS = 256
 REQUEST_TIMEOUT_SECONDS = 20
 MAX_BATCH_PAGES = 8
+MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60
 ALLOWED_HOSTS = frozenset({'arcteryx.com', 'outlet.arcteryx.com', 'rei.com', 'www.rei.com'})
 MARKET_CURRENCIES = {MARKET: CURRENCY}
 
@@ -59,27 +60,25 @@ class CollectorError(Exception):
 
 
 def _retry_after(value: str | None, now: datetime | None = None) -> datetime | None:
-    """Parse a server not-before value without sleeping or shortening its delay.
+    """Parse a server not-before value, bounded to 24 hours from receipt.
 
-    Oversized/unparseable headers are ignored. A numeric delay beyond Python's
-    calendar range saturates to its latest UTC instant, rather than overflowing
-    into an immediate retry. Past dates permit a retry now; monitor policy may
-    independently require a longer failure backoff.
+    Oversized/unparseable headers are ignored. Clamp numeric delays before
+    constructing a timedelta so extreme values cannot overflow or suspend a
+    retailer for years. Past dates permit a retry now; monitor policy may still
+    require its normal failure backoff.
     """
     if not isinstance(value, str) or len(value) > 128:
         return None
     value = value.strip()
     now = now or datetime.now(timezone.utc)
+    latest = now + timedelta(seconds=MAX_RETRY_AFTER_SECONDS)
     if re.fullmatch(r'[0-9]+', value):
-        try:
-            return now + timedelta(seconds=int(value))
-        except OverflowError:
-            return datetime.max.replace(tzinfo=timezone.utc)
+        return now + timedelta(seconds=min(int(value), MAX_RETRY_AFTER_SECONDS))
     try:
         boundary = parsedate_to_datetime(value)
         if boundary.tzinfo is None or boundary.utcoffset() is None:
             return None
-        return max(now, boundary.astimezone(timezone.utc))
+        return min(latest, max(now, boundary.astimezone(timezone.utc)))
     except (ValueError, TypeError, OverflowError):
         return None
 
@@ -370,7 +369,11 @@ def _quote_from_products(products: list, indexed: dict, watch: dict, observed_at
                     if offer_url['retailer_key'] != validate_product_url(watch['url'])['retailer_key']:
                         raise CollectorError('identity_mismatch', 'Offer URL belongs to a different retailer')
                 stock = _schema_name(offer.get('availability'))
-                availability = {'InStock': 'in_stock', 'OutOfStock': 'out_of_stock', 'SoldOut': 'out_of_stock'}.get(stock)
+                availability = {
+                    'InStock': 'in_stock', 'LimitedAvailability': 'in_stock', 'OnlineOnly': 'in_stock',
+                    'OutOfStock': 'out_of_stock', 'SoldOut': 'out_of_stock',
+                    'PreOrder': 'out_of_stock', 'BackOrder': 'out_of_stock',
+                }.get(stock)
                 if availability is None:
                     raise CollectorError('availability_unknown', 'Exact offer does not establish current in-stock/out-of-stock status')
                 candidates.append({'price_minor': _price_minor(offer.get('price')), 'availability': availability})

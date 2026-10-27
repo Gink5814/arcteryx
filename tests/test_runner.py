@@ -77,6 +77,31 @@ class RunnerTest(unittest.TestCase):
         self.assertIn('Color: Black', mail.get_content())
         self.assertIn('Size: M', mail.get_content())
 
+    def test_extended_stock_states_through_collection_confirmation_and_email(self):
+        config = GmailConfig(user='sender@example.com', recipient='owner@example.com', password='abcdefghijklmnop')
+        for stock, available in (('LimitedAvailability', True), ('OnlineOnly', True),
+                                 ('PreOrder', False), ('BackOrder', False)):
+            with self.subTest(stock=stock):
+                self.path = Path(self.temp.name) / f'{stock}.sqlite3'
+                self.watch()
+                product = {
+                    '@type': 'Product', 'sku': 'TEST-M', 'color': 'Black', 'size': 'M',
+                    'offers': {'@type': 'Offer', 'price': '450.00', 'priceCurrency': 'USD',
+                               'availability': f'https://schema.org/{stock}',
+                               'itemCondition': 'https://schema.org/NewCondition'},
+                }
+                body = ('<script type="application/ld+json">' + json.dumps(product) + '</script>').encode()
+                with patch('arcteryx_prices.collector._read_page', return_value=(body, URL)) as page, \
+                        patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp:
+                    smtp.return_value.send_message.return_value = {}
+                    result, code = run_once(self.path, config)
+                self.assertEqual(code, 0)
+                self.assertEqual(result['unhealthy_watches'], [])
+                self.assertEqual(result['alerts_created'], int(available))
+                self.assertEqual(result['notifications']['sent'], int(available))
+                self.assertEqual(page.call_count, 2 if available else 1)
+                self.assertEqual(smtp.return_value.send_message.call_count, int(available))
+
     def test_empty_watch_list_is_explicitly_degraded(self):
         with patch('arcteryx_prices.runner.deliver_notifications', return_value=DELIVERY):
             result, code = run_once(self.path, object(), now=BASE)

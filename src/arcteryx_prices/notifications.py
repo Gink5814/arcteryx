@@ -27,6 +27,7 @@ from .database import canonical_time, parse_time
 SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'notifications.sql'
 CONFIG_KEYS = ('ARC_GMAIL_USER', 'ARC_GMAIL_APP_PASSWORD', 'ARC_ALERT_TO')
 UTC = timezone.utc
+PRICE_ALERT_RETRY_WINDOW = timedelta(days=7)
 
 
 def _address(value, name):
@@ -201,7 +202,7 @@ def send_test_email(config):
 def deliver_notifications(connection, config, *, dry_run=False, now=None):
     """Deliver eligible events; caller must hold the run-once file lock.
 
-    Only the most recent 24 hours of price alerts can be mailed. Pending failures
+    Price alerts remain eligible for seven days after confirmation. Pending failures
     retry after 30 minutes, doubling up to 6 hours. Health notices remain eligible
     while that failure episode is active. Dry runs preview only currently due
     messages and do not modify the delivery ledger or contact Gmail.
@@ -220,14 +221,14 @@ def deliver_notifications(connection, config, *, dry_run=False, now=None):
         summary['previews'] = []
     for event in _events(connection):
         previous = deliveries.get(event['event_key'])
-        if previous and previous['status'] in {'sent', 'expired'}:
+        if previous and previous['status'] == 'sent':
             summary['skipped'] += 1
             continue
         created = parse_time(event['created_at'])
         if created > instant:
             summary['skipped'] += 1
             continue
-        expired = event['kind'] == 'price' and instant - created > timedelta(hours=24)
+        expired = event['kind'] == 'price' and instant - created > PRICE_ALERT_RETRY_WINDOW
         if not dry_run:
             with connection:
                 connection.execute('''INSERT OR IGNORE INTO notification_deliveries
@@ -240,7 +241,9 @@ def deliver_notifications(connection, config, *, dry_run=False, now=None):
                     connection.execute('''UPDATE notification_deliveries SET status='expired',retry_at=NULL
                         WHERE event_key=? AND recipient=?''', (event['event_key'], config.recipient))
             continue
-        if previous and previous['retry_at'] and parse_time(previous['retry_at']) > instant:
+        # Old versions expired prices after 24 hours. Reconsider those unsent
+        # events within the longer window without changing dry-run records.
+        if previous and previous['status'] != 'expired' and previous['retry_at'] and parse_time(previous['retry_at']) > instant:
             summary['pending'] += 1
             continue
         message = _message(event, config)
@@ -256,7 +259,7 @@ def deliver_notifications(connection, config, *, dry_run=False, now=None):
             error = _safe_error(exc)
             retry_at = canonical_time(instant + timedelta(minutes=min(360, 30 * 2**min(attempts - 1, 4))))
             with connection:
-                connection.execute('''UPDATE notification_deliveries SET attempts=?,retry_at=?,last_error=?
+                connection.execute('''UPDATE notification_deliveries SET status='pending',attempts=?,retry_at=?,last_error=?
                     WHERE event_key=? AND recipient=?''',
                     (attempts, retry_at, error, event['event_key'], config.recipient))
             summary['failed'] += 1

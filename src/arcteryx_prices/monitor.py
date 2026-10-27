@@ -21,6 +21,7 @@ from .scope import MARKET, CURRENCY, require_scope
 
 MONITOR_SCHEMA = Path(__file__).resolve().parents[2] / 'db' / 'monitor.sql'
 UTC = timezone.utc
+MAX_RETRY_DELAY = timedelta(hours=24)
 
 
 def _now(value=None):
@@ -72,6 +73,7 @@ def initialize_monitor(db_path):
                         raise
     from .history import initialize_history
     initialize_history(connection)
+    _cap_saved_retries(connection)
     # The product now supports US/USD only. Preserve old quotes and identities,
     # but retire other watches and invalidate any old worker's lease atomically.
     with connection:
@@ -81,6 +83,24 @@ def initialize_monitor(db_path):
             AND (enabled<>0 OR lease_token IS NOT NULL OR lease_until IS NOT NULL)''',
             (canonical_time(_now()), MARKET, CURRENCY))
     return connection
+
+
+def _cap_saved_retries(connection):
+    """Repair old unbounded waits relative to the recorded failure, not startup."""
+    with connection:
+        connection.execute('BEGIN IMMEDIATE')
+        for row in connection.execute('SELECT host,not_before,updated_at FROM monitor_host_cooldowns'):
+            ceiling = parse_time(row['updated_at']) + MAX_RETRY_DELAY
+            if parse_time(row['not_before']) > ceiling:
+                connection.execute('UPDATE monitor_host_cooldowns SET not_before=? WHERE host=?',
+                                   (canonical_time(ceiling), row['host']))
+        for row in connection.execute('''SELECT id,last_checked_at,retry_not_before,next_due_at
+                FROM monitor_watches WHERE retry_not_before IS NOT NULL AND last_checked_at IS NOT NULL'''):
+            ceiling = parse_time(row['last_checked_at']) + MAX_RETRY_DELAY
+            for field in ('retry_not_before', 'next_due_at'):
+                if row[field] and parse_time(row[field]) > ceiling:
+                    connection.execute(f'UPDATE monitor_watches SET {field}=? WHERE id=?',
+                                       (canonical_time(ceiling), row['id']))
 
 
 def _text(value, field, limit=300):
@@ -137,7 +157,7 @@ def _waiting(connection, watch, instant):
     return (max(deadlines) if deadlines else None), host_until
 
 
-def _failure_metadata(exc, status=None):
+def _failure_metadata(exc, status=None, now=None):
     code = getattr(exc, 'http_status', None)
     if type(code) is not int or not 100 <= code <= 599:
         code = None
@@ -146,7 +166,9 @@ def _failure_metadata(exc, status=None):
                  or code is not None and 500 <= code <= 599)
     retry_after = getattr(exc, 'retry_after', None)
     try:
-        retry_after = canonical_time(retry_after) if retry_after is not None else None
+        retry_after = (canonical_time(min(parse_time(canonical_time(retry_after)),
+                                         _now(now) + MAX_RETRY_DELAY))
+                       if retry_after is not None else None)
     except (TypeError, ValueError, AttributeError):
         retry_after = None
     response_url = getattr(exc, 'response_url', None)
@@ -169,6 +191,8 @@ def _record_host_failure(connection, url, metadata, instant, fallback):
     if code != 429 and not (code == 503 and requested):
         return
     deadline = max(instant + fallback, parse_time(requested)) if requested else instant + fallback
+    ceiling = instant + MAX_RETRY_DELAY
+    deadline = min(deadline, ceiling)
     hosts = {urlsplit(url).hostname}
     if metadata.get('response_url'):
         hosts.add(urlsplit(metadata['response_url']).hostname)
@@ -177,9 +201,9 @@ def _record_host_failure(connection, url, metadata, instant, fallback):
         for host in hosts:
             connection.execute('''INSERT INTO monitor_host_cooldowns(host,not_before,http_status,updated_at)
                 VALUES (?,?,?,?) ON CONFLICT(host) DO UPDATE SET
-                not_before=MAX(monitor_host_cooldowns.not_before,excluded.not_before),
+                not_before=MIN(MAX(monitor_host_cooldowns.not_before,excluded.not_before),?),
                 http_status=excluded.http_status,updated_at=excluded.updated_at''',
-                (host, canonical_time(deadline), code, stamp))
+                (host, canonical_time(deadline), code, stamp, canonical_time(ceiling)))
 
 
 def discover_for_monitor(connection, url, now=None):
@@ -194,9 +218,11 @@ def discover_for_monitor(connection, url, now=None):
     try:
         return discover_variants(location['url'])
     except CollectorError as exc:
-        _record_host_failure(connection, location['url'], _failure_metadata(exc),
-                             _now(now), timedelta(minutes=60))
-        deadline = _cooldown_until(connection, location['url'], _now(now))
+        failed_at = _now(now)
+        metadata = _failure_metadata(exc, now=failed_at)
+        exc.retry_after = parse_time(metadata['retry_after']) if metadata['retry_after'] else None
+        _record_host_failure(connection, location['url'], metadata, failed_at, timedelta(minutes=60))
+        deadline = _cooldown_until(connection, location['url'], failed_at)
         if deadline:
             # The local policy can wait longer than Retry-After. Tell callers
             # the actual persisted deadline, including on the first failure.
@@ -354,9 +380,10 @@ def _collect(connection, watch, fetcher, stage, instant, now=None):
         status = getattr(exc, 'status', None)
         if not isinstance(status, str) or not re.fullmatch('[a-z_]{1,64}', status):
             status = 'parse_error' if isinstance(exc, (ValueError, TypeError, KeyError)) else 'network_error'
+        failed_at = _now(now)
         entry = {'stage': stage, 'status': status, 'error': str(exc)[:500], 'quote': None,
-                 'attempted': True} | _failure_metadata(exc, status)
-        _record_host_failure(connection, watch['url'], entry, _now(now),
+                 'attempted': True} | _failure_metadata(exc, status, now=failed_at)
+        _record_host_failure(connection, watch['url'], entry, failed_at,
                              _failure_delay(watch['interval_minutes'], watch['consecutive_failures'] + 1))
     with connection:
         connection.execute('''INSERT INTO monitor_checks
@@ -532,7 +559,7 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                         host_until = _cooldown_until(connection, watch['url'], finished)
                         if host_until:
                             retry_at = max(retry_at, parse_time(host_until))
-                        updates['retry_not_before'] = canonical_time(retry_at)
+                        updates['retry_not_before'] = canonical_time(min(retry_at, finished + MAX_RETRY_DELAY))
                         updates['next_due_at'] = updates['retry_not_before']
                 connection.execute(f"UPDATE monitor_watches SET {','.join(f'{key}=?' for key in updates)} WHERE id=? AND lease_token=?",
                                    tuple(updates.values()) + (watch_id, token))

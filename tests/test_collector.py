@@ -113,10 +113,22 @@ class CollectorTests(unittest.TestCase):
             self.assert_status('condition_unknown', _parse_quote, html(node), WATCH)
 
     def test_parent_inventory_not_inherited_unknown_stock_fails_closed(self):
-        for availability in (None, 'PreOrder', 'LimitedAvailability'):
+        for availability in (None, 'InStoreOnly', 'UnrecognizedAvailability'):
             node = product(availability='https://schema.org/InStock')
             node['offers']['availability'] = availability
             self.assert_status('availability_unknown', _parse_quote, html(node), WATCH)
+
+    def test_limited_online_preorder_and_backorder_exact_offer_stock(self):
+        for stock, expected in (
+            ('LimitedAvailability', 'in_stock'), ('OnlineOnly', 'in_stock'),
+            ('PreOrder', 'out_of_stock'), ('BackOrder', 'out_of_stock'),
+        ):
+            for prefix in ('', 'http://schema.org/', 'https://schema.org/'):
+                with self.subTest(stock=stock, prefix=prefix):
+                    node = product()
+                    node['offers']['availability'] = prefix + stock
+                    self.assertEqual(_parse_quote(html(node), WATCH),
+                                     {'price_minor': 49995, 'availability': expected})
 
     def test_aggregate_and_member_prices_excluded(self):
         node = product()
@@ -292,13 +304,17 @@ class CollectorTests(unittest.TestCase):
                     collect_quote(WATCH)
                 self.assertEqual(failure.exception.response_url, expected)
 
-    def test_retry_after_supports_http_dates_and_seconds_without_shortening_delay(self):
+    def test_retry_after_seconds_and_http_dates_are_capped_at_24_hours(self):
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        self.assertEqual(_retry_after('90000', now), now + timedelta(hours=25))
-        self.assertEqual(_retry_after('Fri, 02 Jan 2026 12:00:00 GMT', now), now + timedelta(hours=36))
+        self.assertEqual(_retry_after('3600', now), now + timedelta(hours=1))
+        self.assertEqual(_retry_after('Thu, 01 Jan 2026 12:00:00 GMT', now), now + timedelta(hours=12))
+        self.assertEqual(_retry_after('86400', now), now + timedelta(hours=24))
+        self.assertEqual(_retry_after('90000', now), now + timedelta(hours=24))
+        self.assertEqual(_retry_after('Fri, 02 Jan 2026 12:00:00 GMT', now), now + timedelta(hours=24))
+        self.assertEqual(_retry_after('Mon, 31 Dec 2029 12:00:00 GMT', now), now + timedelta(hours=24))
         self.assertEqual(_retry_after('Wed, 31 Dec 2025 12:00:00 GMT', now), now)
         self.assertEqual(_retry_after('0', now), now)
-        self.assertEqual(_retry_after('9' * 100, now), datetime.max.replace(tzinfo=timezone.utc))
+        self.assertEqual(_retry_after('9' * 100, now), now + timedelta(hours=24))
         for value in (None, '', '-1', '1.5', 'tomorrow', '9' * 129,
                       'Fri, 02 Jan 2026 12:00:00', 'Fri, 99 Jan 2026 12:00:00 GMT'):
             with self.subTest(value=value):

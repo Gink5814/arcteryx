@@ -191,10 +191,56 @@ class NotificationTest(unittest.TestCase):
         self.smtp.send_message.side_effect = TimeoutError('secret network detail')
         self.assertEqual(self.deliver()['failed'], 1)
         self.smtp.send_message.side_effect = None
-        self.assertEqual(self.deliver(BASE + timedelta(hours=25))['expired'], 1)
+        self.assertEqual(self.deliver(BASE + timedelta(days=7, microseconds=1))['expired'], 1)
         self.assertEqual(self.ledger()[0]['status'], 'expired')
         self.assertEqual(self.factory.call_count, 1)
-        self.assertEqual(self.deliver(BASE + timedelta(hours=26))['sent'], 0)
+        self.assertEqual(self.deliver(BASE + timedelta(days=8))['sent'], 0)
+
+    def test_sleep_and_gmail_failure_do_not_drop_alerts_after_one_day(self):
+        self.alert()
+        self.smtp.send_message.side_effect = TimeoutError('synthetic unavailable Gmail')
+        self.assertEqual(self.deliver()['failed'], 1)
+        self.db.close()
+        self.db = initialize_monitor(self.path)
+        after_sleep = self.deliver(BASE + timedelta(hours=25))
+        self.assertEqual((after_sleep['failed'], after_sleep['expired']), (1, 0))
+        self.assertEqual(self.ledger()[0]['status'], 'pending')
+        self.smtp.send_message.side_effect = None
+        self.assertEqual(self.deliver(BASE + timedelta(days=6))['sent'], 1)
+        message = self.smtp.send_message.call_args.args[0]
+        self.assertIn(canonical_time(BASE), message.get_content())
+        self.assertIn('Price and stock may have changed', message.get_content())
+        self.assertEqual(self.ledger()[0]['attempts'], 3)
+        self.assertEqual(self.deliver(BASE + timedelta(days=7))['sent'], 0)
+        self.assertEqual(self.factory.call_count, 3)
+
+    def test_unsent_price_at_exact_seven_day_boundary_can_send(self):
+        self.alert()
+        result = self.deliver(BASE + timedelta(days=7))
+        self.assertEqual((result['sent'], result['expired']), (1, 0))
+
+    def test_old_24_hour_expiry_is_reconsidered_without_resending_accepted_mail(self):
+        self.alert()
+        self.smtp.send_message.side_effect = TimeoutError('synthetic unavailable Gmail')
+        self.deliver()
+        # Reproduce a ledger left by the old version after a 25-hour outage.
+        with self.db:
+            self.db.execute("UPDATE notification_deliveries SET status='expired',retry_at=NULL")
+        before = self.ledger()
+        self.db.close()
+        self.db = initialize_monitor(self.path)
+        dry = self.deliver(BASE + timedelta(days=2), dry_run=True)
+        self.assertEqual((dry['would_send'], dry['sent']), (1, 0))
+        self.assertEqual(self.ledger(), before)
+        self.assertEqual(self.factory.call_count, 1)
+        self.assertEqual(self.deliver(BASE + timedelta(days=2))['failed'], 1)
+        self.assertEqual(self.ledger()[0]['status'], 'pending')
+        self.smtp.send_message.side_effect = None
+        self.assertEqual(self.deliver(BASE + timedelta(days=2, hours=1))['sent'], 1)
+        self.db.close()
+        self.db = initialize_monitor(self.path)
+        self.assertEqual(self.deliver(BASE + timedelta(days=3))['sent'], 0)
+        self.assertEqual(self.factory.call_count, 3)
 
     def test_dry_run_previews_without_schema_or_delivery_mutations(self):
         self.alert()

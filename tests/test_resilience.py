@@ -96,8 +96,8 @@ class ResilienceTest(unittest.TestCase):
 
     def test_retry_after_persists_and_blocks_manual_scheduled_and_discovery_requests(self):
         first, second = self.watch('M'), self.watch('L')
-        until = BASE + timedelta(days=2)
-        result = self.fail(first, code=429, retry_after=until)
+        until = BASE + timedelta(days=1)
+        result = self.fail(first, code=429, retry_after=BASE + timedelta(days=2))
         self.assertEqual(result['consecutive_failures'], 1)
         self.assertEqual(result['next_retry_at'], canonical_time(until))
         self.assertEqual(result['checks'][0]['http_status'], 429)
@@ -118,6 +118,72 @@ class ResilienceTest(unittest.TestCase):
             discovery.assert_not_called()
         self.assertEqual(self.count('monitor_checks'), 1)
         self.assertEqual(self.count('price_observations'), 0)
+
+    def test_injected_extreme_retry_after_is_bounded_for_watch_and_check_metadata(self):
+        for code, url in ((408, URL), (429, REI), (503, OUTLET)):
+            with self.subTest(code=code):
+                watch = self.watch(url=url)
+                result = self.fail(watch, code=code,
+                                   retry_after=datetime.max.replace(tzinfo=timezone.utc))
+                ceiling = canonical_time(BASE + timedelta(hours=24))
+                self.assertEqual(result['retry_not_before'], ceiling)
+                self.assertEqual(result['next_due_at'], ceiling)
+                self.assertEqual(result['checks'][0]['retry_after'], ceiling)
+                self.assertEqual(result['consecutive_failures'], 1)
+                if code in (429, 503):
+                    self.assertEqual(result['cooldown_until'], ceiling)
+                else:
+                    self.assertIsNone(result['cooldown_until'])
+
+    def test_discovery_caps_extreme_deadline_and_can_resume_after_24_hours(self):
+        ceiling = BASE + timedelta(hours=24)
+        error = CollectorError('http_error', 'SYNTHETIC 429', http_status=429,
+                               retry_after=datetime.max.replace(tzinfo=timezone.utc))
+        with patch('arcteryx_prices.collector.discover_variants', side_effect=error) as fetch:
+            with self.assertRaises(CollectorError) as failure:
+                discover_for_monitor(self.db, URL, now=BASE)
+            self.assertEqual(failure.exception.retry_after, ceiling)
+            with self.assertRaises(CollectorError) as blocked:
+                discover_for_monitor(self.db, URL, now=ceiling - timedelta(seconds=1))
+            self.assertEqual(blocked.exception.status, 'rate_limited')
+            self.assertEqual(fetch.call_count, 1)
+        with patch('arcteryx_prices.collector.discover_variants', return_value={'variants': []}) as fetch:
+            self.assertEqual(discover_for_monitor(self.db, URL, now=ceiling), {'variants': []})
+            fetch.assert_called_once()
+
+    def test_old_unbounded_waits_are_repaired_from_failure_time_without_sliding_on_restart(self):
+        watch = self.watch()
+        check_watch(self.db, watch['id'], fetcher=lambda w: quote(w), now=BASE - timedelta(hours=1))
+        self.fail(watch, code=429, at=BASE, retry_after=BASE + timedelta(hours=1))
+        normal = self.watch(url=REI)
+        self.fail(normal, code=503, at=BASE, retry_after=BASE + timedelta(hours=4))
+        normal_before = dict(self.db.execute('SELECT * FROM monitor_watches WHERE id=?', (normal['id'],)).fetchone())
+        old_deadline = '2029-12-01T00:00:00.000000Z'
+        with self.db:
+            self.db.execute('''UPDATE monitor_watches SET retry_not_before=?,next_due_at=? WHERE id=?''',
+                            (old_deadline, old_deadline, watch['id']))
+            self.db.execute("UPDATE monitor_host_cooldowns SET not_before=? WHERE host='arcteryx.com'", (old_deadline,))
+            self.db.execute('UPDATE monitor_checks SET retry_after=? WHERE watch_id=? AND status<>?',
+                            (old_deadline, watch['id'], 'ok'))
+        checks_before = [tuple(row) for row in self.db.execute('SELECT * FROM monitor_checks')]
+        observations_before = [tuple(row) for row in self.db.execute('SELECT * FROM price_observations')]
+        for startup in (BASE + timedelta(hours=2), BASE + timedelta(hours=25)):
+            self.db.close()
+            with patch('arcteryx_prices.monitor._now', return_value=startup):
+                self.db = initialize_monitor(self.path)
+            repaired = dict(self.db.execute('SELECT * FROM monitor_watches WHERE id=?', (watch['id'],)).fetchone())
+            self.assertEqual(repaired['retry_not_before'], canonical_time(BASE + timedelta(hours=24)))
+            self.assertEqual(repaired['next_due_at'], repaired['retry_not_before'])
+            self.assertEqual(checks_before, [tuple(row) for row in self.db.execute('SELECT * FROM monitor_checks')])
+            self.assertEqual(observations_before, [tuple(row) for row in self.db.execute('SELECT * FROM price_observations')])
+            self.assertEqual(normal_before, dict(self.db.execute('SELECT * FROM monitor_watches WHERE id=?', (normal['id'],)).fetchone()))
+        blocked = Mock()
+        self.assertEqual(check_watch(self.db, watch['id'], fetcher=blocked,
+                                    now=BASE + timedelta(hours=23))['check_status'], 'rate_limited')
+        blocked.assert_not_called()
+        resumed = BASE + timedelta(hours=24)
+        results = run_due(self.db, fetcher=lambda w: quote(w, at=resumed), now=resumed)
+        self.assertTrue(any(result['id'] == watch['id'] and result['check_status'] == 'ok' for result in results))
 
     def test_host_cooldown_does_not_block_another_retailer_or_rewrite_unattempted_quote(self):
         first, second = self.watch('M'), self.watch('L')

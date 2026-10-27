@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS monitor_due ON monitor_watches(enabled,next_due_at);
 CREATE INDEX IF NOT EXISTS monitor_checks_watch ON monitor_checks(watch_id,id);
 
 -- Shared across workers and manual/discovery requests. A server's not-before
--- deadline is never shortened by another failure or a successful other watch.
+-- Within the 24-hour retry cap, another failure cannot shorten the deadline.
 CREATE TABLE IF NOT EXISTS monitor_host_cooldowns (
     host TEXT PRIMARY KEY,
     not_before TEXT NOT NULL,
