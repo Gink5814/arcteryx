@@ -11,6 +11,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -87,7 +88,7 @@ class ServerTest(unittest.TestCase):
         return watch
 
     def observation_count(self):
-        with sqlite3.connect(self.database_path) as database:
+        with closing(sqlite3.connect(self.database_path)) as database:
             return database.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0]
 
     def test_create_check_metrics_alert_persist_and_pause_over_http(self):
@@ -178,7 +179,7 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(self.request('POST', '/api/discover', {'url': ca_url})[0], 422)
             fetch.assert_not_called()
         watch = self.create()
-        with sqlite3.connect(self.database_path) as database:
+        with closing(sqlite3.connect(self.database_path)) as database, database:
             database.execute("UPDATE monitor_watches SET market='CA',currency='CAD',url=?", (ca_url,))
         _, state, _ = self.request('GET', '/api/state')
         self.assertEqual(state['scope'], ['US/USD'])
@@ -187,7 +188,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.request('PATCH', f"/api/watches/{watch['id']}", {'enabled': True})[0], 400)
         self.assertEqual(self.request('POST', f"/api/watches/{watch['id']}/check", {})[0], 400)
         self.fetcher.assert_not_called()
-        with sqlite3.connect(self.database_path) as database:
+        with closing(sqlite3.connect(self.database_path)) as database:
             self.assertEqual(database.execute('SELECT COUNT(*),SUM(enabled) FROM monitor_watches').fetchone(), (1, 0))
 
     def test_host_origin_and_csrf_protection_reject_before_mutation(self):
