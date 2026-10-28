@@ -234,10 +234,15 @@ class CollectorTests(unittest.TestCase):
         wrong_currency['offers']['priceCurrency'] = 'CAD'
         body = html({'@type': 'ProductGroup', 'name': 'Synthetic discovery group',
                      'hasVariant': [valid, missing_identity, conditional, unknown_stock, wrong_currency]})
+        before = datetime.now(timezone.utc)
         with patch('arcteryx_prices.collector._read_page', return_value=(body, URL)) as fetch:
             result = discover_variants(URL)
             fetch.assert_called_once_with(URL, 'US')
-        self.assertEqual(result, {'url': URL, 'market': 'US', 'currency': 'USD',
+        captured = datetime.fromisoformat(result['captured_at'].replace('Z', '+00:00'))
+        self.assertGreaterEqual(captured, before)
+        self.assertLessEqual(captured, datetime.now(timezone.utc))
+        self.assertEqual(result, {'url': URL, 'source_url': URL, 'captured_at': result['captured_at'],
+                                 'market': 'US', 'currency': 'USD',
                                  'retailer_key': 'arcteryx-official', 'retailer_name': "Arc'teryx official",
                                  'label': 'Synthetic discovery group',
                                  'variants': [{'sku': WATCH['sku'], 'color': 'Black', 'size': 'M',

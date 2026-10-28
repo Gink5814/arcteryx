@@ -12,6 +12,7 @@ import re
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -61,7 +62,9 @@ def initialize_monitor(db_path):
             ('retailer_name', "TEXT NOT NULL DEFAULT 'Arc''teryx official'"),
             ('consecutive_failures', 'INTEGER NOT NULL DEFAULT 0'),
             ('retry_not_before', 'TEXT'),
+            ('condition_mask', 'INTEGER NOT NULL DEFAULT 0 CHECK (condition_mask BETWEEN 0 AND 3)'),
         ),
+        'monitor_alerts': (('availability', "TEXT NOT NULL DEFAULT 'in_stock'"), ('trigger_reason', 'TEXT')),
         'monitor_checks': (('http_status', 'INTEGER'), ('retryable', 'INTEGER NOT NULL DEFAULT 0'),
                            ('retry_after', 'TEXT')),
         'monitor_host_cooldowns': (('status', "TEXT NOT NULL DEFAULT 'rate_limited'"),
@@ -121,15 +124,36 @@ def _text(value, field, limit=300):
     return value.strip()
 
 
+def parse_target_price(value):
+    """Convert a human USD amount to exact cents; never silently round it."""
+    if value is None:
+        return None
+    if type(value) not in (str, int, float, Decimal):
+        raise ValueError('target_price must be a positive USD amount with at most two decimals, or null')
+    text = str(value).strip()
+    if len(text) > 128 or not re.fullmatch(r'[0-9]+(?:\.[0-9]{1,2})?', text):
+        raise ValueError('target_price must be a positive USD amount with at most two decimals, or null')
+    try:
+        amount = Decimal(text)
+    except InvalidOperation:
+        raise ValueError('target_price must be a valid USD amount') from None
+    if not 0 < amount <= Decimal('92233720368547758.07'):
+        raise ValueError('target_price must fit a positive 64-bit number of cents')
+    return int(amount * 100)
+
+
 def _settings(payload, *, creating=False):
     result = {}
     if creating or 'rule' in payload:
         rule = payload.get('rule', 'target')
-        if rule not in {'target', 'new_low', 'restock'}:
-            raise ValueError('rule must be target, new_low, or restock')
+        if rule not in {'target', 'new_low', 'restock', 'available_or_target'}:
+            raise ValueError('rule must be target, new_low, restock, or available_or_target')
         result['rule'] = rule
-    if creating or 'target_price_minor' in payload:
-        price = payload.get('target_price_minor')
+    if 'target_price' in payload and 'target_price_minor' in payload:
+        raise ValueError('provide target_price in USD or legacy target_price_minor, not both')
+    if creating or 'target_price_minor' in payload or 'target_price' in payload:
+        price = (parse_target_price(payload['target_price']) if 'target_price' in payload
+                 else payload.get('target_price_minor'))
         if price is not None and (type(price) is not int or not (0 < price <= 2**63 - 1)):
             raise ValueError('target_price_minor must be a positive 64-bit integer or null')
         result['target_price_minor'] = price
@@ -293,6 +317,8 @@ def _public(connection, row, now=None):
              and instant <= parse_time(row['last_success_at']) + timedelta(minutes=row['interval_minutes']))
     result = {key: value for key, value in row.items() if key not in {'lease_token', 'lease_until'}}
     result['enabled'] = bool(row['enabled'])
+    price = row['target_price_minor']
+    result['target_price'] = f'{price // 100}.{price % 100:02d}' if price is not None else None
     result['stale'] = not bool(fresh)
     result['status'] = row['last_status'] if row['enabled'] else 'paused'
     result['availability'] = row['last_availability']
@@ -318,7 +344,7 @@ def _public(connection, row, now=None):
 def _watch_values(payload):
     if not isinstance(payload, dict):
         raise ValueError('watch must be an object')
-    allowed = {'url', 'sku', 'color', 'size', 'label', 'target_price_minor', 'rule', 'interval_minutes'}
+    allowed = {'url', 'sku', 'color', 'size', 'label', 'target_price', 'target_price_minor', 'rule', 'interval_minutes'}
     if set(payload) - allowed:
         raise ValueError(f'unknown watch fields: {sorted(set(payload)-allowed)}')
     url = _validate_url(_text(payload.get('url'), 'url', 2000))
@@ -327,7 +353,7 @@ def _watch_values(payload):
     label = _text(payload.get('label', f"Arc'teryx {sku} / {color} / {size}"), 'label')
     settings = _settings(payload, creating=True)
     if settings['rule'] == 'target' and settings['target_price_minor'] is None:
-        raise ValueError('target rule requires target_price_minor')
+        raise ValueError('target rule requires target_price in USD')
     digest = hashlib.sha256((url['url'] + '\n' + sku).encode()).hexdigest()
     stamp = canonical_time(_now())
     retailer_key = url.get('retailer_key', 'arcteryx-official')
@@ -392,8 +418,8 @@ def list_watches(connection, now=None):
 
 
 def update_watch(connection, watch_id, payload):
-    if not isinstance(payload, dict) or set(payload) - {'enabled', 'target_price_minor', 'rule', 'interval_minutes'}:
-        raise ValueError('only enabled, target_price_minor, rule, and interval_minutes can be updated')
+    if not isinstance(payload, dict) or set(payload) - {'enabled', 'target_price', 'target_price_minor', 'rule', 'interval_minutes'}:
+        raise ValueError('only enabled, target_price, target_price_minor, rule, and interval_minutes can be updated')
     settings = _settings(payload)
     with connection:
         connection.execute('BEGIN IMMEDIATE')
@@ -401,10 +427,10 @@ def update_watch(connection, watch_id, payload):
         require_scope(old)
         merged = old | settings
         if merged['rule'] == 'target' and merged['target_price_minor'] is None:
-            raise ValueError('target rule requires target_price_minor')
+            raise ValueError('target rule requires target_price in USD')
         if settings:
             if any(key in settings and settings[key] != old[key] for key in ('rule', 'target_price_minor')):
-                settings |= {'armed': 1, 'event_threshold_minor': None}
+                settings |= {'armed': 1, 'event_threshold_minor': None, 'condition_mask': 0}
             if 'interval_minutes' in settings and old['last_checked_at']:
                 settings['next_due_at'] = canonical_time(
                     parse_time(old['last_checked_at']) + timedelta(minutes=settings['interval_minutes']))
@@ -542,6 +568,18 @@ def check_watch(connection, watch_id, fetcher=None, now=None):
     return _check_watch(connection, watch_id, fetcher=fetcher, now=now)
 
 
+def _available_conditions(watch, quote):
+    """Keep independent stock/target edges; unknown values cannot rearm them."""
+    previous = watch['condition_mask']
+    if quote['availability'] not in {'in_stock', 'out_of_stock'}:
+        return previous
+    stock = int(quote['availability'] == 'in_stock')
+    target = watch['target_price_minor']
+    price = quote['price_minor']
+    price_condition = (bool(previous & 2) if price is None else price <= target) if target is not None else False
+    return stock | (2 if price_condition else 0)
+
+
 def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
     instant = _now(now)
     stamp = canonical_time(instant)
@@ -584,23 +622,30 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
         status, error = first['status'], first['error']
         quote = first['quote']
         candidate = False
+        condition_mask = watch['condition_mask']
+        trigger_reason = None
         event_threshold = watch['event_threshold_minor']
         if status == 'ok':
             eligible = quote['availability'] == 'in_stock' and quote['price_minor'] is not None
             meets_target = watch['target_price_minor'] is None or quote['price_minor'] is not None and quote['price_minor'] <= watch['target_price_minor']
-            previous = metrics(connection, product_key=watch['product_key'], variant_key=watch['variant_key'],
-                               market=watch['market'], currency=watch['currency'], as_of=quote['observed_at'],
-                               retailer_key=watch['retailer_key'], offer_key=watch['offer_key'])['observed_all_time_min']
             if watch['rule'] == 'target':
                 candidate = eligible and meets_target
                 event_threshold = watch['target_price_minor']
             elif watch['rule'] == 'new_low':
+                previous = metrics(connection, product_key=watch['product_key'], variant_key=watch['variant_key'],
+                                   market=watch['market'], currency=watch['currency'], as_of=quote['observed_at'],
+                                   retailer_key=watch['retailer_key'], offer_key=watch['offer_key'])['observed_all_time_min']
                 candidate = eligible and meets_target and previous is not None and quote['price_minor'] < previous['price_minor']
                 if candidate:
                     event_threshold = previous['price_minor']
+            elif watch['rule'] == 'available_or_target':
+                condition_mask = _available_conditions(watch, quote)
+                newly_matched = condition_mask & ~watch['condition_mask']
+                candidate = bool(newly_matched and quote['price_minor'] is not None)
+                trigger_reason = {1: 'stock', 2: 'target', 3: 'stock_and_target'}.get(newly_matched)
             else:
                 candidate = eligible and meets_target and watch['last_explicit_availability'] == 'out_of_stock'
-            candidate = bool(candidate and watch['armed'])
+            candidate = bool(candidate and (watch['rule'] == 'available_or_target' or watch['armed']))
             if candidate:
                 current = _row(connection, watch_id)
                 if not current['enabled'] or current['config_version'] != watch['config_version']:
@@ -647,13 +692,16 @@ def _check_watch(connection, watch_id, fetcher=None, now=None, due_before=None):
                                 'last_availability': quote['availability']}
                     if quote['availability'] != 'unknown':
                         updates['last_explicit_availability'] = quote['availability']
+                    if watch['rule'] == 'available_or_target':
+                        updates['condition_mask'] = condition_mask
                     if candidate:
                         event = watch['event_number'] + 1
                         cursor = connection.execute('''INSERT INTO monitor_alerts
-                            (watch_id,event_number,created_at,price_minor,currency,rule,url,label,evidence_sha256)
-                            VALUES (?,?,?,?,?,?,?,?,?)''',
+                            (watch_id,event_number,created_at,price_minor,currency,rule,url,label,evidence_sha256,
+                             availability,trigger_reason)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
                             (watch_id,event,finished_stamp,quote['price_minor'],watch['currency'],watch['rule'],
-                             watch['url'],watch['label'],quote['evidence_sha256']))
+                             watch['url'],watch['label'],quote['evidence_sha256'],quote['availability'],trigger_reason))
                         alert = dict(connection.execute('SELECT * FROM monitor_alerts WHERE id=?', (cursor.lastrowid,)).fetchone())
                         updates |= {'armed': 0, 'event_number': event, 'event_threshold_minor': event_threshold}
                     elif quote['availability'] == 'out_of_stock' or (

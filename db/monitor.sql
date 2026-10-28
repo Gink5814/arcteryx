@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS monitor_watches (
     retailer_key TEXT NOT NULL DEFAULT 'arcteryx-official',
     retailer_name TEXT NOT NULL DEFAULT 'Arc''teryx official',
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
-    rule TEXT NOT NULL CHECK (rule IN ('target','new_low','restock')),
+    rule TEXT NOT NULL CHECK (rule IN ('target','new_low','restock','available_or_target')),
     target_price_minor INTEGER,
     interval_minutes INTEGER NOT NULL CHECK (interval_minutes BETWEEN 15 AND 1440),
     created_at TEXT NOT NULL,
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS monitor_watches (
     armed INTEGER NOT NULL DEFAULT 1 CHECK (armed IN (0,1)),
     event_number INTEGER NOT NULL DEFAULT 0,
     event_threshold_minor INTEGER,
+    condition_mask INTEGER NOT NULL DEFAULT 0 CHECK (condition_mask BETWEEN 0 AND 3),
     lease_token TEXT,
     lease_until TEXT,
     config_version INTEGER NOT NULL DEFAULT 1,
@@ -61,6 +62,8 @@ CREATE TABLE IF NOT EXISTS monitor_alerts (
     url TEXT NOT NULL,
     label TEXT NOT NULL,
     evidence_sha256 TEXT NOT NULL,
+    availability TEXT NOT NULL DEFAULT 'in_stock',
+    trigger_reason TEXT,
     UNIQUE (watch_id,event_number)
 );
 

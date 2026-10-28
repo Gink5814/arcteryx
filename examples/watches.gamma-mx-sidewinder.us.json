@@ -5,8 +5,9 @@
     "color": "Vitality/Black Sapphire",
     "size": "XXL",
     "label": "Gamma MX Hoody - Men's · Vitality/Black Sapphire · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C11803/arcteryx-gamma-mx-hoody-mens",
@@ -14,8 +15,9 @@
     "color": "Vitality/Black Sapphire",
     "size": "XL",
     "label": "Gamma MX Hoody - Men's · Vitality/Black Sapphire · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C11804/arcteryx-gamma-mx-jacket-mens",
@@ -23,8 +25,9 @@
     "color": "Solitude",
     "size": "XL",
     "label": "Gamma MX Jacket - Men's · Solitude · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C11804/arcteryx-gamma-mx-jacket-mens",
@@ -32,8 +35,9 @@
     "color": "Solitude",
     "size": "XXL",
     "label": "Gamma MX Jacket - Men's · Solitude · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -41,8 +45,9 @@
     "color": "Black",
     "size": "XXL",
     "label": "Gamma MX Hoody - Men's · Black · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -50,8 +55,9 @@
     "color": "Black",
     "size": "XL",
     "label": "Gamma MX Hoody - Men's · Black · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -59,8 +65,9 @@
     "color": "Black Sapphire Ii",
     "size": "XL",
     "label": "Gamma MX Hoody - Men's · Black Sapphire Ii · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -68,8 +75,9 @@
     "color": "Black Sapphire Ii",
     "size": "XXL",
     "label": "Gamma MX Hoody - Men's · Black Sapphire Ii · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -77,8 +85,9 @@
     "color": "Cloud",
     "size": "XL",
     "label": "Gamma MX Hoody - Men's · Cloud · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -86,8 +95,9 @@
     "color": "Cloud",
     "size": "XXL",
     "label": "Gamma MX Hoody - Men's · Cloud · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -95,8 +105,9 @@
     "color": "Bracken/Mongoose",
     "size": "XXL",
     "label": "Gamma MX Hoody - Men's · Bracken/Mongoose · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/235146/arcteryx-gamma-mx-hoody-mens",
@@ -104,8 +115,9 @@
     "color": "Bracken/Mongoose",
     "size": "XL",
     "label": "Gamma MX Hoody - Men's · Bracken/Mongoose · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/247526/arcteryx-gamma-mx-jacket-mens",
@@ -113,8 +125,9 @@
     "color": "Black",
     "size": "XXL",
     "label": "Gamma MX Jacket - Men's · Black · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/247526/arcteryx-gamma-mx-jacket-mens",
@@ -122,8 +135,9 @@
     "color": "Black",
     "size": "XL",
     "label": "Gamma MX Jacket - Men's · Black · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/247526/arcteryx-gamma-mx-jacket-mens",
@@ -131,8 +145,9 @@
     "color": "Dark Jade",
     "size": "XXL",
     "label": "Gamma MX Jacket - Men's · Dark Jade · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/247526/arcteryx-gamma-mx-jacket-mens",
@@ -140,8 +155,9 @@
     "color": "Dark Jade",
     "size": "XL",
     "label": "Gamma MX Jacket - Men's · Dark Jade · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
@@ -149,8 +165,9 @@
     "color": "Aquaculture",
     "size": "XXL",
     "label": "Sidewinder Jacket - Men's · Aquaculture · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
@@ -158,8 +175,9 @@
     "color": "Aquaculture",
     "size": "XL",
     "label": "Sidewinder Jacket - Men's · Aquaculture · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
@@ -167,8 +185,9 @@
     "color": "Jade/Black",
     "size": "XXL",
     "label": "Sidewinder Jacket - Men's · Jade/Black · XXL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   },
   {
     "url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
@@ -176,7 +195,8 @@
     "color": "Jade/Black",
     "size": "XL",
     "label": "Sidewinder Jacket - Men's · Jade/Black · XL · REI",
-    "rule": "new_low",
-    "interval_minutes": 15
+    "rule": "available_or_target",
+    "interval_minutes": 15,
+    "target_price": null
   }
 ]

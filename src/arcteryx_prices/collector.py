@@ -183,7 +183,8 @@ class _StrictRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, target['url'])
 
 
-def _read_page(url: str, market: str) -> tuple[bytes, str]:
+def _read_html(url: str, market: str, *, validator, redirect_handler) -> tuple[bytes, str]:
+    """Bounded HTML transport; each caller supplies its narrow URL policy."""
     request = Request(url, headers={
         'User-Agent': 'Mozilla/5.0 (compatible; ArcPriceMonitor/0.1)',
         'Accept': 'text/html,application/xhtml+xml',
@@ -191,12 +192,12 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
     })
     # Default ProxyHandler and HTTPSHandler preserve inherited proxy/CA trust.
     # No authentication values, proxy settings or TLS verification are replaced.
-    opener = build_opener(_StrictRedirectHandler(market))
+    opener = build_opener(redirect_handler)
     try:
         with opener.open(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-            final = validate_product_url(response.geturl())
+            final = validator(response.geturl())
             if (final['market'] != market or
-                    final['retailer_key'] != validate_product_url(url)['retailer_key']):
+                    final['retailer_key'] != validator(url)['retailer_key']):
                 raise CollectorError('redirect_blocked', 'Final response changed the watched market or retailer')
             if response.status != 200:
                 raise _http_failure(response.status, response.headers, final['url'], body=_error_body(response))
@@ -231,6 +232,13 @@ def _read_page(url: str, market: str) -> tuple[bytes, str]:
         # Do not include error bodies, authentication headers or proxy details.
         raise CollectorError('network_error', f'Product request failed ({type(exc).__name__})',
                              retryable=True) from exc
+
+
+def _read_page(url: str, market: str) -> tuple[bytes, str]:
+    # Product callers cannot request catalog or arbitrary pages through this path.
+    validate_product_url(url)
+    return _read_html(url, market, validator=validate_product_url,
+                      redirect_handler=_StrictRedirectHandler(market))
 
 
 class _JsonLdParser(HTMLParser):
@@ -480,6 +488,7 @@ def discover_variants(url: str) -> dict:
     """
     validated = validate_product_url(url)
     body, final_url = _read_page(validated['url'], validated['market'])
+    captured = datetime.now(timezone.utc)
     nodes, indexed = _document_nodes(body)
     products = _retailer_products(nodes, validated)
     if len(products) > MAX_DISCOVERY_VARIANTS:
@@ -496,13 +505,14 @@ def discover_variants(url: str) -> dict:
         seen.add(key)
         watch = identity | validated | {'url': final_url}
         try:
-            quote = _quote_from_products(products, indexed, watch)
+            quote = _quote_from_products(products, indexed, watch, captured)
         except CollectorError:
             continue
         variants.append({name: value.strip() for name, value in identity.items()} | quote)
     if not variants:
         raise CollectorError('no_verifiable_variants', 'Page has no exact public new-item variant offers with known stock')
     result = {'url': final_url, 'market': validated['market'],
+              'source_url': final_url, 'captured_at': captured.isoformat(timespec='microseconds').replace('+00:00', 'Z'),
               'currency': validated['currency'], 'variants': variants,
               'retailer_key': validated['retailer_key'], 'retailer_name': validated['retailer_name']}
     groups = [node for node in nodes if _has_type(node, 'ProductGroup')]

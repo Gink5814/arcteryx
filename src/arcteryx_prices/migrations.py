@@ -5,10 +5,16 @@ import sqlite3
 
 
 _OLD_INTERVAL = re.compile(r'\binterval_minutes\s+BETWEEN\s+30\s+AND\s+1440\b', re.IGNORECASE)
+_OLD_RULES = re.compile(r"\brule\s+IN\s*\(\s*'target'\s*,\s*'new_low'\s*,\s*'restock'\s*\)", re.IGNORECASE)
+
+
+def _updated_constraints(definition):
+    definition = _OLD_INTERVAL.sub('interval_minutes BETWEEN 15 AND 1440', definition)
+    return _OLD_RULES.sub("rule IN ('target','new_low','restock','available_or_target')", definition)
 
 
 def migrate_watch_interval(connection):
-    """Lower the old CHECK minimum to 15 without changing watch identities.
+    """Upgrade interval/rule CHECK constraints without changing watch identities.
 
     SQLite cannot alter a CHECK constraint in place. Rebuild only this table;
     its children keep their original foreign-key targets. The original table,
@@ -19,7 +25,8 @@ def migrate_watch_interval(connection):
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='monitor_watches'"
         ).fetchone()[0]
 
-    if not _OLD_INTERVAL.search(table_sql()):
+    original = table_sql()
+    if _updated_constraints(original) == original:
         return
     if connection.in_transaction:
         raise ValueError('interval migration requires a connection outside a transaction')
@@ -33,12 +40,12 @@ def migrate_watch_interval(connection):
         with connection:
             connection.execute('BEGIN IMMEDIATE')
             original = table_sql()
-            if not _OLD_INTERVAL.search(original):
+            if _updated_constraints(original) == original:
                 return  # Another initializer finished while this one waited.
             objects = connection.execute('''SELECT sql FROM sqlite_master
                 WHERE tbl_name='monitor_watches' AND type IN ('index','trigger') AND sql IS NOT NULL
                 ORDER BY type,name''').fetchall()
-            definition = _OLD_INTERVAL.sub('interval_minutes BETWEEN 15 AND 1440', original)
+            definition = _updated_constraints(original)
             # Preserve the existing declaration, including any additive columns.
             definition = definition.replace('monitor_watches', '_monitor_watches_interval_migration', 1)
             connection.execute(definition)

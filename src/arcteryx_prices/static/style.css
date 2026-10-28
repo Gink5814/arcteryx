@@ -117,6 +117,8 @@ h1>span { color:#6f8d54; }
 .metric-value.unavailable { color:#7d8972; }
 .watch-bottom { border-top:1px solid #f0f1e9; padding-top:13px; display:flex; flex-direction:column; gap:11px; }
 .watch-health { font-size:11px; color:#65735a; line-height:1.9; }
+.price-provenance { display:flex; flex-wrap:wrap; gap:4px 16px; margin:12px 0; color:var(--muted); font-size:11px; line-height:1.8; overflow-wrap:anywhere; }
+.price-provenance a { color:inherit; }
 .watch-health .health-warning { color:var(--amber); }
 .watch-check-detail { overflow-wrap:anywhere; }
 .watch-retry { display:flex; flex-direction:column; gap:2px; margin-top:7px; padding:8px 10px; border-radius:5px; background:#f7f3e8; color:#796035; overflow-wrap:anywhere; }
@@ -192,6 +194,7 @@ h1>span { color:#6f8d54; }
 .alert-copy { flex:1; min-width:0; }
 .alert-title { margin:0; font-size:13px; font-weight:550; overflow-wrap:anywhere; }
 .alert-meta { font-size:10px; color:var(--muted); margin-top:5px; }
+.alert-meta.alert-stock-warning { color:var(--amber); }
 .alert-price { font-size:21px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .alert-link { font-size:11px; color:#667e55; text-decoration:none; padding:8px; white-space:nowrap; }
 .alert-link:hover { text-decoration:underline; }

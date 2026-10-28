@@ -44,11 +44,13 @@ class PageResponse(BytesIO):
 
 
 class FetchCountTest(unittest.TestCase):
-    def test_twenty_variant_run_once_reports_five_page_fetches(self):
+    def test_twenty_variant_baseline_run_reports_five_page_fetches(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'synthetic.sqlite3'
             with closing(initialize_monitor(path)) as connection:
-                import_watches(connection, PRESET)
+                # Test shared primary retrieval without alert confirmations;
+                # personal presets can choose first-stock alerts independently.
+                import_watches(connection, [watch | {'rule': 'new_low'} for watch in PRESET])
             with patch('arcteryx_prices.collector.build_opener') as opener, \
                     patch('arcteryx_prices.notifications.smtplib.SMTP_SSL') as smtp:
                 opener.return_value.open.side_effect = lambda request, **kwargs: PageResponse(

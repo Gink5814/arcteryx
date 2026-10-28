@@ -39,11 +39,21 @@ def main():
     commands.add_parser('alerts', help='List confirmed in-app alerts (no external messages sent)')
     watch_add = commands.add_parser('watch-add', help='Add a watch from a JSON object')
     watch_add.add_argument('json_file')
+    watch_add.add_argument('--target-price', help='Optional target in USD, for example 280 or 279.95')
     watch_import = commands.add_parser('watch-import', help='Atomically add a JSON array of watches; matching watches keep their settings')
     watch_import.add_argument('json_file')
     watch_update = commands.add_parser('watch-update', help='Change a watch’s enabled state or rule')
     watch_update.add_argument('watch_id', type=int)
-    watch_update.add_argument('json_file')
+    watch_update.add_argument('json_file', nargs='?')
+    watch_update.add_argument('--target-price', help='Target in USD, for example 280 or 279.95; use none to clear')
+    watch_update.add_argument('--rule', choices=['target', 'new_low', 'restock', 'available_or_target'])
+    watch_discover = commands.add_parser('watch-discover', help='Fetch a product and add exact color/size watches without writing SKU JSON')
+    watch_discover.add_argument('url')
+    watch_discover.add_argument('--sizes', nargs='+', required=True, help='Exact sizes, for example XL XXL')
+    watch_discover.add_argument('--colors', nargs='+', help='Exact color names; omit to select all discovered colors')
+    watch_discover.add_argument('--rule', choices=['target', 'new_low', 'restock', 'available_or_target'], default='available_or_target')
+    watch_discover.add_argument('--target-price', help='Optional target in USD, for example 280 or 279.95')
+    watch_discover.add_argument('--interval-minutes', type=int, default=15)
     check = commands.add_parser('check', help='Collect and verify one watch, or all due watches')
     check.add_argument('--watch-id', type=int)
     check.add_argument('--force', action='store_true', help='Check all enabled watches even when not due')
@@ -54,8 +64,9 @@ def main():
     once.add_argument('--force', action='store_true', help='Check all enabled watches; still respect source cooldowns')
     mail_test = commands.add_parser('gmail-test', help='Send one explicitly labeled Gmail configuration test; does not collect prices')
     mail_test.add_argument('--env-file', help='Private KEY=value Gmail configuration file')
-    discover = commands.add_parser('discover', help='Read verified color/size variants from a supported retailer product page')
-    discover.add_argument('url')
+    discover = commands.add_parser('discover', help='Read exact variants from a product URL, or search US official/Outlet listings by name')
+    discover.add_argument('url', nargs='?')
+    discover.add_argument('--search', metavar='NAME', help='Search numbered men’s product links, for example "gamma mx"')
     args = parser.parse_args()
     connection = None
     try:
@@ -101,7 +112,16 @@ def main():
             result = {'database': args.db, 'schema_version': 1,
                       'observations': connection.execute('SELECT COUNT(*) FROM price_observations').fetchone()[0]}
         elif args.command == 'discover':
-            result = discover_for_monitor(connection, args.url)
+            if bool(args.url) == bool(args.search):
+                raise ValueError('discover requires exactly one product URL or --search NAME')
+            if args.search:
+                from .search import search_products
+                result = search_products(connection, args.search)
+                if not result['complete']:
+                    print(json.dumps(result, ensure_ascii=False, indent=2))
+                    raise SystemExit(1)
+            else:
+                result = discover_for_monitor(connection, args.url)
         elif args.command == 'import':
             payload = load_json(args.json_file)
             if isinstance(payload, dict) and isinstance(payload.get('observations'), list):
@@ -124,11 +144,18 @@ def main():
                              market=args.market, currency=args.currency, as_of=args.as_of,
                              retailer_key=args.retailer_key, offer_key=args.offer_key)
         elif args.command == 'watch-add':
-            result = create_watch(connection, load_json(args.json_file))
+            result = create_watch(connection, _watch_payload(args))
         elif args.command == 'watch-import':
             result = import_watches(connection, load_json(args.json_file))
         elif args.command == 'watch-update':
-            result = update_watch(connection, args.watch_id, load_json(args.json_file))
+            payload = _watch_payload(args)
+            if not payload:
+                raise ValueError('watch-update requires a JSON settings file, --target-price or --rule')
+            result = update_watch(connection, args.watch_id, payload)
+        elif args.command == 'watch-discover':
+            from .watch_discovery import add_discovered_watches
+            result = add_discovered_watches(connection, args.url, sizes=args.sizes, colors=args.colors,
+                rule=args.rule, target_price=args.target_price, interval_minutes=args.interval_minutes)
         elif args.command == 'watch-list':
             result = list_watches(connection)
         elif args.command == 'alerts':
@@ -147,6 +174,21 @@ def main():
     finally:
         if connection is not None:
             connection.close()
+
+
+def _watch_payload(args):
+    payload = load_json(args.json_file) if args.json_file else {}
+    if not isinstance(payload, dict):
+        raise ValueError('watch settings must be a JSON object')
+    if args.target_price is not None:
+        if 'target_price' in payload or 'target_price_minor' in payload:
+            raise ValueError('set the target in the JSON file or --target-price, not both')
+        payload['target_price'] = None if args.target_price.lower() == 'none' else args.target_price
+    if getattr(args, 'rule', None) is not None:
+        if 'rule' in payload:
+            raise ValueError('set the rule in the JSON file or --rule, not both')
+        payload['rule'] = args.rule
+    return payload
 
 
 if __name__ == '__main__':

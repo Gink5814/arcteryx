@@ -1,6 +1,6 @@
 # Arc'teryx 美国价格监控
 
-面向美国的本地监控工作台：粘贴美国官网、美国 Outlet 或 REI 商品链接，读取颜色和尺码，关注目标价、已观测新低或补货。产品范围仅限 **US / USD**。
+面向美国的本地监控工作台：粘贴美国官网、美国 Outlet 或 REI 商品链接，读取颜色和尺码，关注有货、目标价、已观测新低或补货。产品范围仅限 **US / USD**。
 
 前端包括关注清单、价格记录、提醒中心和购买指南四个视图。支持名称/颜色/尺码/商家搜索、商家与状态筛选、美元价格排序，以及在页面直接调整目标价、提醒规则和检查间隔。价格记录页另列带原文来源的美国历史促销参考，明确标注是否计入指标。手机端使用紧凑导航与单列卡片。
 
@@ -40,7 +40,7 @@ Windows PowerShell 中把 `python3` 换成 `py -3 -X utf8`。`scripts/run-monito
 python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --dry-run
 ```
 
-要直接关注男款 Gamma MX（无帽及连帽）和 Sidewinder 的 XL / XXL，可先执行 `watch-import examples/watches.gamma-mx-sidewinder.us.json`。这份[来源已核实的清单](docs/gamma-mx-sidewinder.md)含 20 个具体颜色尺码，设为每 15 分钟、已观测新低提醒；只导入配置，价格从你的首次真实采集开始记录。
+要直接关注男款 Gamma MX（无帽及连帽）和 Sidewinder 的 XL / XXL，可先执行 `watch-import examples/watches.gamma-mx-sidewinder.us.json`。这份[来源已核实的清单](docs/gamma-mx-sidewinder.md)含 20 个 REI 颜色尺码，设为每 15 分钟、有货或达到目标价提醒，目标价留空时只按有货提醒。首次成功检查有货即可二次确认并生成提醒，不需要先积累历史。
 
 **试运行会真实抓取页面并保存价格、检查及站内提醒，只预览邮件而不发送。** 它不是数据库只读模式；返回结果中的 `collection_persisted: true` 会标明采集已保存。尚未添加启用的关注时会明确提示，不会假装正在盯价。
 
@@ -79,6 +79,14 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 python3 scripts/run-monitor.py discover https://arcteryx.com/us/en/shop/mens/beta-jacket-0868
 python3 scripts/run-monitor.py discover https://www.rei.com/product/228617/arcteryx-beta-jacket-mens
 
+# 从官网和 Outlet 列表页找实际带编号的男款商品链接。
+python3 scripts/run-monitor.py discover --search "gamma mx"
+python3 scripts/run-monitor.py discover --search "gamma mx jacket"
+python3 scripts/run-monitor.py discover --search "sidewinder"
+
+# 实时读取页面，把所有明确颜色的 XL/XXL（包括缺货变体）加入关注。
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-discover https://outlet.arcteryx.com/us/en/shop/mens/gamma-mx-hoody-8485 --sizes XL XXL
+
 # 添加一个示例真实商品关注（之后检查时读取价格；重复关注会被拒绝）
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-add examples/watch.us.json
 
@@ -86,6 +94,9 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-add examples/watch
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-import examples/watches.gamma-mx-sidewinder.us.json
 
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-list
+# 目标价按美元填写；none 清空目标价，继续按有货提醒。
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-update 1 --rule available_or_target --target-price 280
+python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-update 1 --target-price none
 # 将自己的关注 1 改为每 15 分钟检查；先用 watch-list 确认编号。
 python3 scripts/run-monitor.py --db data/prices.sqlite3 watch-update 1 examples/watch.interval-15.json
 python3 scripts/run-monitor.py --db data/prices.sqlite3 check --watch-id 1
@@ -98,6 +109,8 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
 `data/prices.sqlite3` 保存在本地并被 Git 忽略。表结构、程序、研究和验证记录纳入版本管理。`examples/observations.example.json` 是合成单元测试示例，只能导入独立测试库；`examples/watch.us.json` 是真实商品的关注配置，不包含伪造价格。`examples/watch.interval-15.json` 只调整检查间隔，不创建关注或更换商品。
+
+`discover --search` 返回列表来源、查询时间、实际发现的链接和逐页失败状态；它不保证覆盖全站，也不提供已核验价格。`watch-discover` 只导入实时核验到的 SKU，保留重复关注已有设置，并报告缺失的颜色尺码组合。界面报价附来源和实际查询时间；[仓库查询规则](AGENTS.md)要求购买回答先实时查询，失败时明确区分旧快照和当前结果。
 
 浏览器回归：`node tests/frontend.e2e.cjs`。测试环境需要可用的 Node.js、Playwright 与 Chromium；当前云环境已提供。该测试使用隔离的合成 API 数据，覆盖实际浏览器操作、移动布局、断线、数据缺口和键盘焦点，不改动工作库。应用本身仍不依赖 Node.js。
 

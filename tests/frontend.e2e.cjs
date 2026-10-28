@@ -80,9 +80,14 @@ async function handler(req, res) {
   const body = JSON.parse(raw);
   fixture.requests.push({ method: req.method, url: req.url, body });
   if (req.method === 'POST' && req.url === '/api/discover') {
+    if (fixture.nextDiscoveryError) {
+      fixture.nextDiscoveryError = false;
+      return send(503, { error: 'SYNTHETIC discovery unavailable' });
+    }
     const rei = body.url.includes('www.rei.com/');
     return send(200, {
       url: body.url, label: rei ? 'SYNTHETIC REI SHELL' : 'SYNTHETIC US SHELL', market: 'US', currency: 'USD',
+      source_url: body.url, captured_at: stamp,
       variants: [{ sku: 'SYNTHETIC-SAME-SKU', color: 'Synthetic Black', size: 'M',
         price_minor: 12000, availability: 'in_stock' }],
     });
@@ -91,6 +96,7 @@ async function handler(req, res) {
     const market = body.url.includes('/ca/') ? 'CA' : 'US';
     const nextId = Math.max(0, ...fixture.watches.map(item => item.id)) + 1;
     const value = { ...watch(nextId, market, null, body.label), ...body };
+    if ('target_price' in body) value.target_price_minor = body.target_price === null ? null : Math.round(Number(body.target_price) * 100);
     if (body.url.includes('www.rei.com/')) Object.assign(value, { retailer_key: 'rei', retailer_name: 'REI Co-op' });
     fixture.watches.push(value);
     return send(201, value);
@@ -101,6 +107,7 @@ async function handler(req, res) {
     assert.ok(value, 'fixture mutation identifies an existing watch');
     if (req.method === 'PATCH' && !match[2]) {
       Object.assign(value, body);
+      if ('target_price' in body) value.target_price_minor = body.target_price === null ? null : Math.round(Number(body.target_price) * 100);
       if (!value.enabled) { value.stale = true; value.current_price_minor = null; }
       return send(200, value);
     }
@@ -160,6 +167,8 @@ async function main() {
     await page.locator('#add-watch').click();
     assert.equal(await page.locator('#watch-url').evaluate(node => node === document.activeElement), true);
     assert.equal(await page.locator('#watch-interval').inputValue(), '60', 'new watches keep the existing one-hour default');
+    assert.equal(await page.locator('#watch-rule').inputValue(), 'available_or_target', 'the first-check stock rule is offered by default');
+    assert.equal(await page.locator('#watch-target').evaluate(input => input.required), false);
     assert.match(await page.locator('#supported-source-hint').innerText(), /REI Co-op（美国）/);
     assert.doesNotMatch(await page.locator('#supported-source-hint').innerText(), /加拿大|CAD/);
     await page.locator('#watch-url').fill('https://arcteryx.com/ca/en/shop/mens/synthetic-browser-fixture');
@@ -175,13 +184,24 @@ async function main() {
     await page.getByLabel('商品链接', { exact: true }).fill('https://arcteryx.com/us/en/shop/mens/synthetic-browser-fixture');
     await page.locator('#discover-variants').click();
     await page.getByText('已找到 1 个明确变体。').waitFor();
+    assert.match(await page.locator('#discovery-provenance').innerText(), /(?=.*2026)(?=.*12:00:00)(?=.*UTC)/s);
+    assert.match(await page.locator('#discovery-provenance a').getAttribute('href'), /arcteryx.com\/us\/en\/shop/);
+    fixture.nextDiscoveryError = true;
+    await page.locator('#discover-variants').click();
+    await page.getByText('SYNTHETIC discovery unavailable', { exact: true }).waitFor();
+    assert.equal(await page.locator('#variant-field').isHidden(), true, 'failed refresh hides old discovery prices');
+    assert.equal(await page.locator('#discovery-provenance').innerText(), '');
+    await page.locator('#discover-variants').click();
+    await page.getByText('已找到 1 个明确变体。').waitFor();
     await page.getByLabel('选择颜色与尺码', { exact: true }).selectOption('0');
     await page.locator('#watch-target').fill('123.45');
+    await page.locator('#watch-rule').selectOption('target');
     await page.locator('#watch-interval').selectOption('15');
     await page.locator('#save-watch').click();
     await page.getByRole('heading', { name: 'SYNTHETIC US SHELL', exact: true }).waitFor();
     const creation = fixture.requests.find(item => item.url === '/api/watches');
-    assert.equal(creation.body.target_price_minor, 12345, 'decimal input is sent as integer cents');
+    assert.equal(creation.body.target_price, '123.45', 'decimal input is sent as an exact USD string');
+    assert.equal('target_price_minor' in creation.body, false, 'the UI does not ask users to supply cents');
     assert.equal(creation.body.sku, 'SYNTHETIC-SAME-SKU');
     assert.equal(creation.body.color, 'Synthetic Black');
     assert.equal(creation.body.size, 'M');
@@ -191,6 +211,7 @@ async function main() {
 
     await page.getByRole('button', { name: '立即检查 SYNTHETIC US SHELL', exact: true }).click();
     await page.getByText('有效报价', { exact: true }).waitFor();
+    assert.match(await page.locator('.watch-card[data-watch-id="1"] .price-provenance').innerText(), /(?=.*报价来源)(?=.*2026)(?=.*12:00:00)(?=.*UTC)/s);
     assert.equal(await page.locator('#fresh-count').innerText(), '1');
     await page.locator('#watch-list .history-details summary').click();
     assert.equal(await page.locator('#watch-list .history-chart circle').count(), 1, 'one observation day produces one point');
@@ -210,7 +231,8 @@ async function main() {
     await page.locator('#save-settings').click();
     await page.locator('#settings-dialog').waitFor({ state: 'hidden' });
     const patch = fixture.requests.find(item => item.method === 'PATCH');
-    assert.equal(patch.body.target_price_minor, 9999);
+    assert.equal(patch.body.target_price, '99.99');
+    assert.equal('target_price_minor' in patch.body, false);
     assert.equal(patch.body.interval_minutes, 15);
     assert.equal(fixture.watches[0].interval_minutes, 15);
     assert.equal(fixture.watches[0].target_price_minor, 9999);
@@ -471,19 +493,41 @@ async function main() {
     await page.locator('#discover-variants').click();
     await page.getByText('已找到 1 个明确变体。').waitFor();
     await page.locator('#variant-select').selectOption('0');
-    await page.locator('#watch-target').fill('120');
+    await page.locator('#watch-rule').selectOption('available_or_target');
+    await page.locator('#watch-target').fill('');
+    assert.match(await page.locator('#rule-hint').innerText(), /首次检查发现有货/);
     await page.locator('#save-watch').click();
     await page.getByRole('heading', { name: 'SYNTHETIC REI SHELL', exact: true }).waitFor();
     const retailerCreation = fixture.requests.filter(item => item.url === '/api/watches').at(-1);
     assert.equal(retailerCreation.body.url, 'https://www.rei.com/product/12346/arcteryx-synthetic-browser-fixture');
-    assert.equal(retailerCreation.body.target_price_minor, 12000);
+    assert.equal(retailerCreation.body.target_price, null, 'stock-only monitoring does not invent a budget');
+    assert.equal(retailerCreation.body.rule, 'available_or_target');
     assert.equal(retailerCreation.body.interval_minutes, 60, 'creating the next watch resets to the one-hour default');
     await page.locator('#retailer-filter').selectOption('rei');
     assert.equal(await page.locator('.watch-card').count(), 2, 'new retailer watch appears in its retailer filter');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'retailer filters fit mobile layout');
+    await page.getByRole('button', { name: '设置提醒 SYNTHETIC REI SHELL', exact: true }).click();
+    assert.equal(await page.locator('#settings-target').evaluate(input => input.required), false);
+    await page.locator('#settings-target').fill('280');
+    await page.locator('#save-settings').click();
+    await page.locator('#settings-dialog').waitFor({ state: 'hidden' });
+    const stockSettings = fixture.requests.filter(item => item.method === 'PATCH').at(-1);
+    assert.equal(stockSettings.body.target_price, '280.00');
+    assert.equal(stockSettings.body.rule, 'available_or_target');
+    const reiWatch = fixture.watches.find(item => item.label === 'SYNTHETIC REI SHELL');
+    fixture.alerts.push({ id: 50, watch_id: reiWatch.id, label: 'SYNTHETIC OUT-OF-STOCK TARGET',
+      market: 'US', currency: 'USD', price_minor: 28000, rule: 'available_or_target',
+      availability: 'out_of_stock', trigger_reason: 'target', created_at: stamp, url: reiWatch.url });
+    await refresh();
+    await page.locator('button[data-view="alerts"]').click();
+    const unavailableAlert = page.locator('.alert-item').filter({ hasText: 'SYNTHETIC OUT-OF-STOCK TARGET' });
+    assert.match(await unavailableAlert.innerText(), /达到目标价.*复核时仍缺货，仅为价格提醒/s);
+    assert.match(await unavailableAlert.innerText(), /(?=.*来源：REI Co-op)(?=.*2026)(?=.*12:00:00)(?=.*UTC)/s);
+    assert.equal(await unavailableAlert.locator('.alert-link').getAttribute('href'), reiWatch.url);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'stock warning and precise provenance fit mobile layout');
     assert.deepEqual(fixture.failures, []);
     assert.deepEqual(errors, [], 'no JavaScript or CSP runtime failures');
-    console.log('PASS: synthetic browser official/REI discovery/create/edit, fifteen-minute create/edit and default reset, retailer filters, US-only URL and legacy-record exclusion, USD price sorting, historical source provenance and exclusions, sparse history, blocked-source status, safe and bounded failure details, per-source retry deadlines and clock expiry, alerts, stale/offline prices, mobile and keyboard focus.');
+    console.log('PASS: synthetic browser official/REI discovery/create/edit, first-check stock rule and optional USD targets, exact dollar payloads, source/query-time provenance, out-of-stock target alerts, fifteen-minute settings, retailer filters, US-only scope, sparse history, blocked-source status, safe diagnostics, retry deadlines, offline prices, mobile and keyboard focus.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

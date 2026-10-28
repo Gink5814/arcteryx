@@ -24,7 +24,9 @@ class IntervalMigrationTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / 'prices.sqlite3'
         self.db = initialize(self.path)
-        old_schema = (ROOT / 'db/monitor.sql').read_text().replace('BETWEEN 15 AND 1440', 'BETWEEN 30 AND 1440')
+        old_schema = ((ROOT / 'db/monitor.sql').read_text()
+                      .replace('BETWEEN 15 AND 1440', 'BETWEEN 30 AND 1440')
+                      .replace(",'available_or_target'", ''))
         self.db.executescript(old_schema)
         initialize_history(self.db)
         self.db.executescript((ROOT / 'db/notifications.sql').read_text())

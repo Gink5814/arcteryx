@@ -38,7 +38,7 @@ const evidenceHosts = new Set([
   "arcteryx.com", "outlet.arcteryx.com", "www.rei.com", "rei.com",
   "www.backcountry.com", "backcountry.com",
 ]);
-const ruleNames = { target: "达到目标价", new_low: "已观测新低", restock: "重新有货" };
+const ruleNames = { target: "达到目标价", new_low: "已观测新低", restock: "重新有货", available_or_target: "有货或达到目标价" };
 const viewLabels = {
   overview: ["关注清单", "盯住具体的颜色与尺码，让好价格有迹可循。"],
   history: ["价格记录", "查看真实观测记录，了解每个价格背后的数据覆盖。"],
@@ -124,7 +124,8 @@ function dateTime(value) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "尚无记录";
   return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    second: "2-digit", timeZoneName: "short",
   }).format(date);
 }
 
@@ -134,7 +135,8 @@ function productLocation(value) {
     if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
     if (["arcteryx.com", "outlet.arcteryx.com"].includes(url.hostname)) {
       if (!/^\/us\/en\/shop\/.+/.test(url.pathname)) return null;
-      return { url: url.href, market: "US", currency: "USD", retailer: "Arc'teryx 官网 / Outlet" };
+      return { url: url.href, market: "US", currency: "USD",
+        retailer: url.hostname === "outlet.arcteryx.com" ? "Arc'teryx Outlet" : "Arc'teryx 官网" };
     }
     if (["rei.com", "www.rei.com"].includes(url.hostname) && /^\/product\/[A-Za-z0-9]+\/arcteryx-[A-Za-z0-9-]+\/?$/.test(url.pathname)) {
       url.hostname = "www.rei.com";
@@ -151,7 +153,7 @@ function safeProductURL(value) {
 }
 
 function retailerName(watch) {
-  if (watch.retailer_name === "Arc'teryx official") return "Arc'teryx 官网 / Outlet";
+  if (watch.retailer_name === "Arc'teryx official") return productLocation(watch.url)?.retailer || "Arc'teryx 官网 / Outlet";
   return watch.retailer_name || productLocation(watch.url)?.retailer || "来源待确认";
 }
 
@@ -349,7 +351,15 @@ function ruleDescription(watch) {
   const price = watch.target_price_minor;
   if (watch.rule === "target") return `目标价 ≤ ${money(price, watch.currency)} ${watch.currency}`;
   if (watch.rule === "restock") return price ? `补货且价格 ≤ ${money(price, watch.currency)} ${watch.currency}` : "从明确缺货变为有货时提醒";
+  if (watch.rule === "available_or_target") return price ? `有货或价格 ≤ ${money(price, watch.currency)} ${watch.currency} 时提醒` : "有货就提醒，首次有效检查也可触发";
   return "低于此前已观测最低价时提醒";
+}
+
+function priceProvenance(watch) {
+  const detail = node("p", "price-provenance");
+  detail.append(externalLink(`报价来源：${retailerName(watch)}`, watch.url),
+    node("span", "", `最近有效报价查询时间：${dateTime(watch.last_success_at)}`));
+  return detail;
 }
 
 function chart(watch, standalone = false) {
@@ -515,7 +525,7 @@ function watchCard(watch) {
   setActionIdentity(settings, watch, "settings");
   settings.addEventListener("click", () => openSettings(watch));
   actions.append(check, settings, toggle); bottom.append(health, actions);
-  card.append(top, prices, bottom, chart(watch));
+  card.append(top, prices, priceProvenance(watch), bottom, chart(watch));
   return card;
 }
 
@@ -699,7 +709,13 @@ function renderAlerts() {
     const copy = node("div", "alert-copy");
     const label = alert.label || watch?.label || watch?.sku || "关注的商品";
     const currency = alert.currency || watch?.currency;
-    copy.append(node("h3", "alert-title", label), node("div", "alert-meta", `${ruleNames[alert.rule] || "价格提醒"} · ${dateTime(alert.created_at)} · ${currency || ""}`));
+    const reason = { stock: "有货提醒", target: "达到目标价", stock_and_target: "有货且达到目标价" }[alert.trigger_reason] || ruleNames[alert.rule] || "价格提醒";
+    const stock = alert.availability === "out_of_stock" ? "复核时仍缺货，仅为价格提醒" :
+      alert.availability === "in_stock" || alert.availability === undefined ? "复核时有货" : "复核库存未确认";
+    const source = watch ? retailerName(watch) : productLocation(alert.url)?.retailer || "商品来源";
+    copy.append(node("h3", "alert-title", label),
+      node("div", `alert-meta${alert.availability === "out_of_stock" ? " alert-stock-warning" : ""}`, `${reason} · ${stock}`),
+      node("div", "alert-meta", `来源：${source} · 复核时间：${dateTime(alert.created_at)} · ${currency || ""}`));
     item.append(symbol, copy, node("div", "alert-price", money(alert.price_minor, currency)),
       externalLink("查看商品 ↗", alert.url || watch?.url, "alert-link"));
     alertCache.set(String(alert.id), { signature: itemKey, element: item });
@@ -746,7 +762,7 @@ function renderHistory() {
   heading.append(node("h3", "", watch.label || watch.sku),
     node("p", "", `${retailerName(watch)} · ${watch.color} · 尺码 ${watch.size} · ${watch.market} / ${watch.currency}`));
   const stats = priceMetrics(watch);
-  wrapper.append(heading, stats, chart(watch, true),
+  wrapper.append(heading, stats, priceProvenance(watch), chart(watch, true),
     node("p", "method-note", "仅统计全新、现货、公开单件报价。历史最低指已观测记录中的最低价；覆盖天数不足时，不代表完整历史。"));
   content.replaceChildren(wrapper);
 }
@@ -813,7 +829,7 @@ function updateSettingsForm() {
   target.disabled = rule === "new_low";
   target.required = rule === "target";
   if ($("settings-target-field")) $("settings-target-field").hidden = rule === "new_low";
-  setText("settings-target-hint", rule === "restock" ? "可留空。填写后只在补货且不高于该价格时提醒。" : rule === "new_low" ? "首次有效报价作为基线，之后出现更低的现货价时提醒。" : "价格达到或低于目标价并通过复核时提醒。");
+  setText("settings-target-hint", rule === "available_or_target" ? "美元金额，可留空：首次有货或再次补货就提醒。填写后价格达到目标也会提醒，即使仍缺货；邮件会注明库存。" : rule === "restock" ? "美元金额，可留空。填写后只在补货且不高于该价格时提醒。" : rule === "new_low" ? "首次有效报价作为基线，之后出现更低的现货价时提醒。" : "按美元填写，例如 280 表示 USD 280.00。首次检查达到目标价也可提醒。");
 }
 
 function openSettings(watch) {
@@ -822,7 +838,7 @@ function openSettings(watch) {
   settingsWatchId = watch.id;
   setText("settings-watch-name", `${watch.label || watch.sku} · ${watch.color} / ${watch.size}`);
   $("settings-rule").value = watch.rule;
-  $("settings-target").value = watch.target_price_minor ? (watch.target_price_minor / 100).toFixed(2) : "";
+  $("settings-target").value = watch.target_price ?? (watch.target_price_minor ? (watch.target_price_minor / 100).toFixed(2) : "");
   setText("settings-target-currency", watch.currency);
   const interval = $("settings-interval");
   interval.querySelectorAll("option[data-custom-interval]").forEach((option) => option.remove());
@@ -846,10 +862,10 @@ async function saveSettings(event) {
   savingSettings = true; syncWriteControls(); save.textContent = "正在保存…"; $("settings-error").hidden = true;
   try {
     const rule = $("settings-rule").value;
-    const target = rule === "new_low" ? null : priceToMinor($("settings-target").value);
+    const target = rule === "new_low" ? null : priceInDollars($("settings-target").value);
     if (rule === "target" && target === null) throw new Error("请填写目标价。");
     await api(`/api/watches/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({
-      rule, target_price_minor: target, interval_minutes: Number($("settings-interval").value),
+      rule, target_price: target, interval_minutes: Number($("settings-interval").value),
     }) });
     $("settings-dialog").close();
     showFeedback("提醒设置已更新，将按新的条件监控。");
@@ -871,10 +887,10 @@ function updateForm() {
   $("target-field").hidden = rule === "new_low";
   $("watch-target").required = rule === "target";
   $("watch-target").disabled = rule === "new_low";
-  $("target-label").textContent = rule === "restock" ? "补货时的价格上限（可选）" : "目标价";
-  $("target-hint").textContent = rule === "restock" ? "留空则只关注补货；填写后，仅在有货且不高于此价格时提醒。" : "商品单价，不含税费和运费。价格达到或低于目标时提醒。";
+  $("target-label").textContent = rule === "restock" ? "补货时的美元价格上限（可选）" : rule === "available_or_target" ? "美元目标价（可选）" : "美元目标价";
+  $("target-hint").textContent = rule === "available_or_target" ? "留空则只要有货就提醒。填写后，不高于目标价也会提醒，即使仍缺货；提醒会注明库存。" : rule === "restock" ? "留空则只关注补货；填写后，仅在有货且不高于此美元金额时提醒。" : "例如 USD 280 输入 280。商品单价不含税费和运费。";
   $("rule-hint").hidden = rule === "target";
-  $("rule-hint").textContent = rule === "new_low" ? "从首次有效观测开始积累历史。首次报价作为基线，之后出现严格更低的可购价格时提醒。" : "先确认目标变体缺货，再确认恢复现货时提醒；页面读取失败不会被当作缺货。";
+  $("rule-hint").textContent = rule === "available_or_target" ? "首次检查发现有货就会复核并提醒；之后再次补货或新达到目标价会再提醒，持续满足同一条件不重复发送。" : rule === "new_low" ? "从首次有效观测开始积累历史。首次报价作为基线，之后出现严格更低的可购价格时提醒。" : "先确认目标变体缺货，再确认恢复现货时提醒；页面读取失败不会被当作缺货。";
 }
 
 function clearDiscovery() {
@@ -885,11 +901,13 @@ function clearDiscovery() {
   $("variant-select").firstChild.value = "";
   $("discovery-status").textContent = "";
   $("discovery-status").classList.remove("error");
+  $("discovery-provenance").replaceChildren();
 }
 
 async function discoverVariants() {
   const url = safeProductURL($("watch-url").value.trim());
   if (!url || discoveryBusy) return;
+  clearDiscovery();
   discoveryBusy = true;
   $("discover-variants").textContent = "正在读取…";
   $("discovery-status").textContent = "正在确认商品变体，请稍候。";
@@ -915,6 +933,9 @@ async function discoverVariants() {
     });
     $("variant-field").hidden = false;
     $("discovery-status").textContent = `已找到 ${variants.length} 个明确变体。`;
+    $("discovery-provenance").replaceChildren(
+      externalLink(`报价来源：${productLocation(result.url)?.retailer || "商品页面"}`, result.source_url || result.url),
+      node("span", "", `查询时间：${dateTime(result.captured_at)}`));
     if (!$("watch-label").value && typeof result.label === "string") $("watch-label").value = result.label;
     $("watch-sku").value = ""; $("watch-color").value = ""; $("watch-size").value = "";
     $("manual-fields").open = false;
@@ -930,13 +951,13 @@ async function discoverVariants() {
   }
 }
 
-function priceToMinor(text) {
+function priceInDollars(text) {
   if (!text.trim()) return null;
   if (!/^\d+(?:\.\d{1,2})?$/.test(text.trim())) throw new Error("价格请填写最多两位小数的正数。");
   const [major, minor = ""] = text.trim().split(".");
   const value = Number(major) * 100 + Number(minor.padEnd(2, "0"));
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error("目标价需要大于 0，且在有效金额范围内。");
-  return value;
+  return `${major.replace(/^0+(?=\d)/, "")}.${minor.padEnd(2, "0")}`;
 }
 
 ui.add.addEventListener("click", openForm);
@@ -1021,11 +1042,11 @@ ui.form.addEventListener("submit", async (event) => {
     const url = safeProductURL($("watch-url").value.trim());
     if (!url) throw new Error("请使用已支持零售商的美国具体商品链接，完整支持范围见窗口说明。");
     const rule = $("watch-rule").value;
-    const target = rule === "new_low" ? null : priceToMinor($("watch-target").value);
+    const target = rule === "new_low" ? null : priceInDollars($("watch-target").value);
     if (rule === "target" && target === null) throw new Error("请设置一个目标价。");
     const payload = {
       url, sku: $("watch-sku").value.trim(), color: $("watch-color").value.trim(),
-      size: $("watch-size").value.trim(), rule, target_price_minor: target,
+      size: $("watch-size").value.trim(), rule, target_price: target,
       interval_minutes: Number($("watch-interval").value),
     };
     const label = $("watch-label").value.trim();

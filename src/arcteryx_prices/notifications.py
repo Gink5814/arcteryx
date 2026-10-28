@@ -134,18 +134,38 @@ def _events(connection):
                        'watch_id': watch['id'], 'created_at': watch['last_checked_at'] or watch['created_at']}
 
 
+def _price_message(event, label, identity):
+    price = f"USD {event['price_minor'] // 100}.{event['price_minor'] % 100:02d}"
+    combined = event['rule'] == 'available_or_target'
+    subject = (f"Arc'teryx stock or target alert: {label} — {price}" if combined
+               else f"Arc'teryx price alert: {label} — {price}")
+    availability = event.get('availability', 'in_stock')
+    reason = {'stock': 'In stock (first observation or restock)',
+              'target': 'Price reached the target',
+              'stock_and_target': 'In stock and price reached the target'}.get(event.get('trigger_reason'))
+    if availability == 'in_stock':
+        stock = 'This exact variant was in stock at the recorded confirmation time.'
+    elif availability == 'out_of_stock':
+        stock = ('This exact variant was OUT OF STOCK at the recorded confirmation time. '
+                 'This is a price-only notice, not a restock or a currently purchasable offer. '
+                 '复核时仍缺货：这是目标价提醒，不是补货通知。')
+    else:
+        stock = 'Availability is unverified; this notice does not establish that the item can be purchased.'
+    body = (identity + f"Rule: {event['rule']}\nVerified price: {price}\n"
+            + (f"Trigger: {reason}\n" if reason else '')
+            + f"Availability at confirmation: {availability}\n"
+            f"Confirmed at (UTC): {event['created_at']}\nSource: {event['url']}\n\n"
+            + stock + ' Price and stock may have changed; confirm them before buying. '
+            'Price excludes tax and shipping.\n')
+    return subject, body
+
+
 def _message(event, config=None):
     label = ' '.join(event['label'].split())
     identity = (f"Product: {event['label']}\nRetailer: {event['retailer_name']}\n"
                 f"Color: {event['color']}\nSize: {event['size']}\nSKU: {event['sku']}\n")
     if event['kind'] == 'price':
-        price = f"USD {event['price_minor'] // 100}.{event['price_minor'] % 100:02d}"
-        subject = f"Arc'teryx price alert: {label} — {price}"
-        body = (identity + f"Rule: {event['rule']}\nVerified price: {price}\n"
-                f"Confirmed at (UTC): {event['created_at']}\n\n{event['url']}\n\n"
-                'This exact variant was in stock at the recorded confirmation time. '
-                'Price and stock may have changed; confirm them before buying. '
-                'Price excludes tax and shipping.\n')
+        subject, body = _price_message(event, label, identity)
     elif event.get('source_block'):
         subject = f"Arc'teryx 被网站拦截 / website access blocked: {event['host']}"
         body = (f"Retailer: {event['retailer_name']}\nSource: {event['host']}\n"

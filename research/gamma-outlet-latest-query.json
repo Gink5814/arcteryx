@@ -1,0 +1,12 @@
+{
+  "url": "https://outlet.arcteryx.com/us/en/shop/mens/gamma-mx-hoody-8485",
+  "queried_at": "2026-10-28T00:17:40.514523+00:00",
+  "queried_at_mountain": "2026-10-27T18:17:40.514523-06:00",
+  "status": "network_error",
+  "error": "Product request failed (URLError)",
+  "http_status": null,
+  "cause_type": "URLError",
+  "cause": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+  "provenance": "Live product discovery attempt using inherited HTTPS proxy and TLS verification; no price or stock response was obtained.",
+  "observation_imported": false
+}
