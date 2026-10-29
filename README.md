@@ -74,6 +74,8 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 
 新增的 [Therme Down Jacket · Black Sapphire · XL](docs/therme-down-jacket.md) 来自用户吊牌照片，目前为待核验关注，尚未启用自动提醒；照片价格不计入已采集历史。
 
+[Peak Performance Helium AOP · 女款 S](docs/peak-performance-helium.md) 同样已登记为待接入请求；该品牌尚无采集适配，照片线索不表示已启用监控。
+
 ## 命令行
 
 ```bash

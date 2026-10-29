@@ -1,0 +1,62 @@
+{
+  "status": "pending_product_verification_and_source_adapter",
+  "active_monitor": false,
+  "collector_supported": false,
+  "recorded_at": "2026-10-29T22:21:11.670373+00:00",
+  "requested_market": "US",
+  "requested_currency": "USD",
+  "product": {
+    "brand": "Peak Performance",
+    "label_name": "Helium AOP Down Hood Jack",
+    "model_code": "G80861020",
+    "barcode": "7333529014221",
+    "gender": "womens",
+    "size": "S",
+    "color_label": "331 SNOWBAN",
+    "verified_color_name": null,
+    "url": null,
+    "web_variant_sku": null,
+    "retailer": null
+  },
+  "source": {
+    "type": "user_provided_hangtag_photo",
+    "photo_captured_at": null,
+    "tag_price": "290.00",
+    "tag_currency_symbol": "$",
+    "verified_currency": null,
+    "price_is_live_verified": false,
+    "import_into_price_history": false
+  },
+  "intended_monitor": {
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15,
+    "first_confirmed_in_stock_alert": true,
+    "restock_alert": true
+  },
+  "verification_attempts": [
+    {
+      "source_url": "https://www.peakperformance.com/",
+      "purpose": "Read the brand site printed on the user supplied hangtag and locate an actual US product page; no product URL guessed.",
+      "status": "network_error",
+      "http_status": null,
+      "error_type": "URLError",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+      "retailer_response_received": false,
+      "checked_at": "2026-10-29T22:20:30.723638+00:00",
+      "checked_at_denver": "2026-10-29T16:20:30.723638-06:00"
+    }
+  ],
+  "required_before_activation": [
+    "Verify a real US product source and USD pricing for the pictured model, color and womens S variant.",
+    "Implement and validate support for that source; the current collector and catalog search are Arc'teryx-specific.",
+    "Import only a verified online variant and validate inventory confirmation and alert delivery on the actual monitoring computer."
+  ],
+  "notes": [
+    "Do not substitute mens XL / XXL, a different color, or a different Helium variant.",
+    "Do not expand SNOWBAN into a presumed full color name without a verified source.",
+    "The visible barcode and model code are lookup evidence, not verified online variant SKUs.",
+    "The label amount is not a budget, live USD offer or historical price observation.",
+    "No executable watch was added and no existing watch was changed."
+  ]
+}

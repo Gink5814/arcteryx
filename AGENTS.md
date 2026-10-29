@@ -7,6 +7,7 @@
 - 新增关注必须对应页面中确认的具体颜色和尺码。当前购买偏好为男款 XL / XXL、颜色不限；Gamma MX 无帽和连帽均可，Sidewinder 也在范围内。未知变体保持待核验，不编造可执行关注。
 - 当前提醒偏好为首次检查有货就提醒，之后补货再次提醒；目标价暂不设。使用 `available_or_target` 规则、`target_price: null`。用户输入目标价时以美元接受，内部才转换为整数美分；不要要求用户自行换算。
 - 新增照片关注：男款 Therme Down Jacket，Black Sapphire，先按照片 XL；详见 `docs/therme-down-jacket.md`。不要换成 Therme Parka。照片价格只作线索，不自动设成目标价；未核验网页 URL / SKU 前属于待接入请求，不声称已启用监控。
+- 新增照片关注：Peak Performance 女款 Helium AOP Down Hood Jack，款号 G80861020，颜色标签 `331 SNOWBAN`，S 码；详见 `docs/peak-performance-helium.md`。这是独立的女款请求，不套用男款 XL / XXL。标签 `$290.00` 未明确币种；当前采集器尚不支持该品牌，未完成商品核验及适配前不声称已启用提醒。
 - 首次有货和目标价提醒仍须两次核验。`new_low` 的首轮基线语义保留，不把初始价格称为历史最低价。
 - 真实价格与合成测试数据分开；只有实际取得的观测进入工作库。报告中引用的历史快照须保留原始来源和查询时间。
 - `run-once --dry-run` 会采集并保存，但不发邮件。真实发信需使用已配置的 Gmail 正式命令；测试与开发不得擅自发送真实邮件。
