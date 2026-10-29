@@ -72,6 +72,8 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 
 关注记录按 URL 和 SKU 独立保存，当前看板不会自动将官网、Outlet、不同语言页面或不同代产品合并。数据库的底层指标支持明确映射后的跨店比较，但自动商品匹配尚未实现。
 
+新增的 [Therme Down Jacket · Black Sapphire · XL](docs/therme-down-jacket.md) 来自用户吊牌照片，目前为待核验关注，尚未启用自动提醒；照片价格不计入已采集历史。
+
 ## 命令行
 
 ```bash

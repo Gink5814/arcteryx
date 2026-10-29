@@ -1,0 +1,57 @@
+{
+  "status": "pending_product_and_variant_verification",
+  "active_monitor": false,
+  "recorded_at": "2026-10-29T22:16:27.529824+00:00",
+  "market": "US",
+  "currency": "USD",
+  "product": {
+    "brand": "Arc'teryx",
+    "name": "Therme Down Jacket",
+    "gender": "mens",
+    "color": "Black Sapphire",
+    "size": "XL",
+    "url": null,
+    "sku": null,
+    "retailer": null
+  },
+  "source": {
+    "type": "user_provided_hangtag_photo",
+    "photo_captured_at": null,
+    "retailer_identity_verified": false,
+    "visible_retailer_code": "C11-812-0004",
+    "visible_tag_code": "001280",
+    "tag_price": "649.73",
+    "tag_regular_price": "800.00",
+    "tag_msrp": "800.00",
+    "tag_sale_label": "Outlet",
+    "price_is_live_verified": false,
+    "import_into_price_history": false
+  },
+  "intended_monitor": {
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15,
+    "first_confirmed_in_stock_alert": true,
+    "restock_alert": true
+  },
+  "verification_attempts": [
+    {
+      "source_url": "https://www.rei.com/search?q=C11812+Therme+Down+Jacket",
+      "purpose": "Look up the product identifier visible on the user supplied hangtag; no product URL or SKU guessed.",
+      "status": "network_error",
+      "http_status": null,
+      "error_type": "URLError",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+      "retailer_response_received": false,
+      "checked_at": "2026-10-29T22:14:46.467670+00:00",
+      "checked_at_denver": "2026-10-29T16:14:46.467670-06:00"
+    }
+  ],
+  "notes": [
+    "Exact pictured Jacket, not Therme Parka. Prioritize the pictured Black Sapphire / XL combination.",
+    "REI is only an unverified lookup lead based on the label format; the photo does not identify the merchant.",
+    "The label price is not a user target, current web quote, or all-time low.",
+    "Do not turn printed label identifiers into executable web SKUs without live product verification.",
+    "No monitor watch was created. Product URL and exact online variant must be verified before import."
+  ]
+}
