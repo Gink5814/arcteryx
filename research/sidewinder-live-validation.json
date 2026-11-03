@@ -1,0 +1,123 @@
+{
+  "scope": "US/USD; new mens 25th-anniversary Sidewinder Jacket; XL / XXL",
+  "completed_at": "2026-11-03T17:13:03.174114+00:00",
+  "completed_at_denver": "2026-11-03T10:13:03.174114-07:00",
+  "created_official_watches": 4,
+  "checked_watches": 8,
+  "in_app_alerts_created": 6,
+  "email_sent": false,
+  "page_fetches": 8,
+  "cache_hits": 6,
+  "confirmation_fetches": 6,
+  "variants": [
+    {
+      "watch_id": 23,
+      "source_url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
+      "sku": "C066720005",
+      "color": "Aquaculture",
+      "size": "XXL",
+      "price_usd": "850.00",
+      "availability": "out_of_stock",
+      "observed_at": "2026-11-03T17:12:59.130693Z",
+      "evidence_sha256": "53f3cedaa013ba0e7d2c712f28adcc9d8846b97106abf0e70e7bfa5ab7ce9b8e",
+      "independent_confirmation": false,
+      "in_app_alert_created": false
+    },
+    {
+      "watch_id": 24,
+      "source_url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
+      "sku": "C066720004",
+      "color": "Aquaculture",
+      "size": "XL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:12:59.730040Z",
+      "evidence_sha256": "53f3cedaa013ba0e7d2c712f28adcc9d8846b97106abf0e70e7bfa5ab7ce9b8e",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    },
+    {
+      "watch_id": 25,
+      "source_url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
+      "sku": "C066720010",
+      "color": "Jade/Black",
+      "size": "XXL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:13:00.217083Z",
+      "evidence_sha256": "53f3cedaa013ba0e7d2c712f28adcc9d8846b97106abf0e70e7bfa5ab7ce9b8e",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    },
+    {
+      "watch_id": 26,
+      "source_url": "https://www.rei.com/product/C06672/arcteryx-sidewinder-jacket-mens",
+      "sku": "C066720009",
+      "color": "Jade/Black",
+      "size": "XL",
+      "price_usd": "850.00",
+      "availability": "out_of_stock",
+      "observed_at": "2026-11-03T17:12:59.130693Z",
+      "evidence_sha256": "53f3cedaa013ba0e7d2c712f28adcc9d8846b97106abf0e70e7bfa5ab7ce9b8e",
+      "independent_confirmation": false,
+      "in_app_alert_created": false
+    },
+    {
+      "watch_id": 27,
+      "source_url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+      "sku": "X000010804030",
+      "color": "Black / Aquaculture AC",
+      "size": "XL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:13:02.048616Z",
+      "evidence_sha256": "32d6bb99736eba5fd0bf6fc78490e3033ceade0bc97f5d59fa70fda71d093c08",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    },
+    {
+      "watch_id": 28,
+      "source_url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+      "sku": "X000010804018",
+      "color": "Dark Jade / Black",
+      "size": "XL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:13:02.504137Z",
+      "evidence_sha256": "4dde75685f1ac5c67390525bbb5efa87adcc6128971616d6699ca09b7e629562",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    },
+    {
+      "watch_id": 29,
+      "source_url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+      "sku": "X000010804019",
+      "color": "Dark Jade / Black",
+      "size": "XXL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:13:02.961265Z",
+      "evidence_sha256": "4dde75685f1ac5c67390525bbb5efa87adcc6128971616d6699ca09b7e629562",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    },
+    {
+      "watch_id": 30,
+      "source_url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+      "sku": "X000010804031",
+      "color": "Black / Aquaculture AC",
+      "size": "XXL",
+      "price_usd": "850.00",
+      "availability": "in_stock",
+      "observed_at": "2026-11-03T17:13:03.140146Z",
+      "evidence_sha256": "32d6bb99736eba5fd0bf6fc78490e3033ceade0bc97f5d59fa70fda71d093c08",
+      "independent_confirmation": true,
+      "in_app_alert_created": true
+    }
+  ],
+  "limitations": [
+    "Snapshot only; no continuous scheduler or Gmail delivery configured by this check.",
+    "No discount verified. Do not merge differently named retailer colors or old AR/SV releases.",
+    "Outlet search of two catalog pages found no matching link; this is not proof of no inventory."
+  ]
+}

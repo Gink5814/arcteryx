@@ -64,9 +64,9 @@ python3 scripts/run-monitor.py --db data/prices.sqlite3 run-once --notify gmail 
 
 ## 已验证与限制
 
-已真实验证美国官网、美国 Outlet 和 REI 的明确变体。当前工作库启用 20 个男款 Gamma MX / Sidewinder 的 XL、XXL 关注，每 15 分钟检查；[首轮真实检查](research/gamma-mx-sidewinder-live-validation.json)全部成功，5 个页面共用初次读取。此前 5 个美国试点已暂停，已有记录保留。旧版建立的 1 个加拿大关注继续停用并从产品界面隐藏。
+已真实验证美国官网、美国 Outlet 和 REI 的明确变体。当前工作库配置了 24 个启用的男款 Gamma MX / Sidewinder XL、XXL 关注，检查间隔为 15 分钟：20 个 REI 关注和 4 个新增 Sidewinder 官网关注。2026-11-03 的 [Sidewinder 实查](research/sidewinder-live-validation.json)检查 8 个组合全部成功，并为 6 个有货组合生成站内提醒，未发邮件。持续运行仍需在实际电脑配置定时任务；其余商品的旧快照见 [此前检查](research/gamma-mx-sidewinder-live-validation.json)。此前 5 个美国试点已暂停，旧版 1 个加拿大关注停用并从界面隐藏。
 
-当前启用的关注都来自已核实的 REI 页面。[候选清单](docs/gamma-mx-sidewinder.md)已补入用户提供的美国 Outlet Gamma MX Hoody 链接及 $280 报价；该页的 XL / XXL 变体尚待独立核验，未计入监控或价格指标。已将 12 条 2025—2026 年的真实美国历史促销报道导入工作库的独立参考表，也可用下方命令在新库重建。报道的原帖日期、价格、条件和来源均保留，但不冒充零售商已核验的具体尺码库存。[此前入库与监控验证](research/retailer-history-live-validation.json) 保留当时的完整快照，历史文件中的加拿大记录不表示当前支持范围。
+Sidewinder 美国官网的两色 XL / XXL 已核实，可导入 [官网预设](examples/watches.sidewinder-official.us.json)。[候选清单](docs/gamma-mx-sidewinder.md)还保留用户提供的美国 Outlet Gamma MX Hoody 链接及 $280 报价；该页的 XL / XXL 变体尚待独立核验，未计入监控或价格指标。已将 12 条 2025—2026 年的真实美国历史促销报道导入工作库的独立参考表，也可用下方命令在新库重建。报道的原帖日期、价格、条件和来源均保留，但不冒充零售商已核验的具体尺码库存。[此前入库与监控验证](research/retailer-history-live-validation.json) 保留当时的完整快照，历史文件中的加拿大记录不表示当前支持范围。
 
 指标记录从实际采集开始，没有补造历史。365 天最低价、90 天每日最低价均值会同时显示实际覆盖天数。历史报道未通过精确变体存档核验，不计入这些指标；本次尚未取得合格的旧变体存档。未来价格、库存和页面结构可能变化，具体快照见验证记录。
 

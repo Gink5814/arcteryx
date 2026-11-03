@@ -1,0 +1,42 @@
+[
+  {
+    "url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+    "sku": "X000010804030",
+    "color": "Black / Aquaculture AC",
+    "size": "XL",
+    "label": "Sidewinder Jacket - Men's · Black / Aquaculture AC · XL · Official",
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15
+  },
+  {
+    "url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+    "sku": "X000010804018",
+    "color": "Dark Jade / Black",
+    "size": "XL",
+    "label": "Sidewinder Jacket - Men's · Dark Jade / Black · XL · Official",
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15
+  },
+  {
+    "url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+    "sku": "X000010804019",
+    "color": "Dark Jade / Black",
+    "size": "XXL",
+    "label": "Sidewinder Jacket - Men's · Dark Jade / Black · XXL · Official",
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15
+  },
+  {
+    "url": "https://arcteryx.com/us/en/shop/mens/sidewinder-jacket-0804",
+    "sku": "X000010804031",
+    "color": "Black / Aquaculture AC",
+    "size": "XXL",
+    "label": "Sidewinder Jacket - Men's · Black / Aquaculture AC · XXL · Official",
+    "rule": "available_or_target",
+    "target_price": null,
+    "interval_minutes": 15
+  }
+]
